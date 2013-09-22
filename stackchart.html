@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>stacked chart</title>
+	<style>
+		body {
+			opacity: #fff;
+		}
+		#svg {
+			width:960px;
+			margin:0 auto;
+		}
+		svg {
+			font: 10px sans-serif;
+		}
+		rect,
+		line {
+			shape-rendering: crispEdges;
+		}
+		path {
+			stroke:#333;
+			stroke-width:1;
+		}
+
+	</style>
+	<script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+	<script src="js/StackChart.js"></script>
+</head>
+<body>
+	<div id="stackchart"></div>
+	<script>
+
+	d3.csv("data/totali.csv",function(d){
+		return {
+			"year":+d.year,
+			"date":new Date((+d.year)+"-01-01"),
+			"private":+d.privato,
+			"public":+d.pubblico,
+			"total": +d.privato+(+d.pubblico)
+		}
+	},function(data){
+
+		var fundings = d3.layout.stack().offset("zero")(["private", "public"].map(function(type) {
+			return data.map(function(d) {
+				return {x: (d.date), y: +d[type]};
+			});
+		}));
+
+		console.log(fundings)
+
+		new StackChart(fundings,{
+			container:"#stackchart",
+			width:960,
+			height:100,
+			margins:{
+				top:0,
+				right:80,
+				bottom:20,
+				left:40
+			}
+		})
+
+	})
+
+	
+
+	</script>
+</body>
+</html>
