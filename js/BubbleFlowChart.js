@@ -68,6 +68,7 @@ function BubbleFlowChart(data) {
 			
 
 			updateCircleGroups(src,src_groups,src_sub_groups,src_size,"src");
+			updateUXLayer();
 			updateCircleGroups(src_public,src_public_groups,src_public_sub_groups,src_public_size,"src_public");
 			updateCircleGroups(dst,dst_groups,dst_sub_groups,dst_size,"dst");
 		});
@@ -443,53 +444,157 @@ function BubbleFlowChart(data) {
 					.attr("id","ux")
 	};
 
+	ux_layer.src_group=ux_layer.main.append("g");
+				
 
+	function updateUXLayer(over_callback,out_callback) {
+		var inc=0;
+		
+		ux_layer.src_group.attr("transform","translate("+delta["src"].x+","+delta["src"].y+")")
 
-	var inc=0;
-	ux_layer.src_groups=ux_layer.main.append("g")
-			.attr("transform",src.attr("transform"))
-			.selectAll("rect.ux-src")
-			.data(src_size,function(d){
-				return d.key;
-			})
-			.enter()
-			.append("g")
-				.attr("class","ux-src")
-				.attr("transform",function(d){
-					var x=0,
-						new_y=(scale_r(d.values.total))+inc;
-						inc=inc+scale_r(d.values.total)*2;
-						y=new_y-scale_r(d.values.total);
-					return "translate("+x+","+y+")";
+		var groups=ux_layer.src_group.selectAll("g.ux-src")
+				.data(src_size,function(d){
+					return d.key;
 				});
-	ux_layer.src_groups.append("rect")
-				.attr("x",function(d,i){
-					return -margins.left;
-				})
-				.attr("y",0)
-				.attr("width",function(d){
-					return margins.left + (WIDTH-margins.right-margins.left-box_w)/4;
-				})
-				.attr("height",function(d){
-					return scale_r(d.values.total)*2;
-				})
-				.style("fill-opacity",0)
-	ux_layer.src_groups.append("text")
-					.attr("class","label")
-					.classed("permanent",function(d){
-						return scale_r(d.values.total)*2+step*2>12;
-					})
-					.attr("x",function(d,i){
-						return -scale_r(d.values.total)
-					})
-					.attr("y",function(d,i){
-						return scale_r(d.values.total);
-					})
-					.attr("dy","0.25em")
-					.style("text-anchor","end")
-					.text(function(d){
+
+		var new_groups=groups.enter()
+				.append("g")
+					.attr("rel",function(d){
 						return d.key;
+					})
+					.attr("class","ux-src");
+					
+		groups.exit().remove();
+
+		
+
+		new_groups.append("rect")
+					.attr("x",function(d,i){
+						return -margins.left;
+					})
+					.attr("y",0)
+					.attr("width",function(d){
+						return margins.left + (WIDTH-margins.right-margins.left-box_w)/4;
+					})
+					.style("fill-opacity",0.1)
+		new_groups.append("text")
+						.attr("class","label")
+						.classed("permanent",function(d){
+							return scale_r(d.values.total)*2+step*2>12;
+						})
+						.attr("x",function(d,i){
+							return -scale_r(d.values.total)
+						})
+						.attr("y",function(d,i){
+							return scale_r(d.values.total);
+						})
+						.attr("dy","0.25em")
+						.style("text-anchor","end")
+						.text(function(d){
+							return d.key;
+						});
+
+		groups.attr("transform",function(d){
+						var x=0,
+							new_y=(scale_r(d.values.total))+inc;
+							inc=inc+scale_r(d.values.total)*2;
+							y=new_y-scale_r(d.values.total);
+						return "translate("+x+","+y+")";
+					})
+					.select("rect")
+						.attr("height",function(d){
+							return scale_r(d.values.total)*2;
+						});
+
+		//ux_layer.src_group.selectAll("g.ux-src")
+		new_groups
+				.on("click",function(d){
+					svg.classed("interacting",true).classed("clicked",!svg.classed("clicked"));
+				})
+				.on("mouseover",function(d){
+					if(svg.classed("clicked"))
+						return;
+					svg.classed("interacting",true)
+
+					over_callback(d);
+					/*
+					
+					*/		
+				})
+				.on("mouseout",function(d){
+					if(svg.classed("clicked"))
+						return;
+
+					svg.classed("interacting",false)
+
+					out_callback(d);
+				})
+	}
+	updateUXLayer(
+			function(d){
+				flows
+					.selectAll("path")
+						.classed("highlight",function(f){
+							return f.from==d.key;
+						});
+
+				ux_layer.src_groups
+					.filter(function(src){
+						return src.key==d.key;
+					})
+					.classed("highlight",true)
+
+
+				//d3.select(this)
+				src_groups
+					.filter(function(src){
+						return src.key==d.key;
+					})
+					.classed("highlight",true)
+					.classed("text-visible",true)
+						
+
+				dst_groups
+					.filter(function(l){
+						return l.values.flows.filter(function(f){
+							return f.from==d.key;
+						}).length>0;
+					})
+					.classed("highlight",true)
+					.classed("text-visible",function(d){
+						return scale_y(d.values.total)+step*2>12;
 					});
+
+				//console.log("MOUSE OVER",d);
+
+				dst_sub_groups
+					.filter(function(sub_d){
+						return sub_d.from==d.key;
+					})
+					.classed("highlight",true)
+
+				src_sub_groups
+					.filter(function(sub_d){
+						return sub_d.from==d.key;
+					})
+					.classed("highlight",true)
+			},
+			function(d) {
+				flows
+					.selectAll("path.highlight")
+						.classed("highlight",false);
+				
+				
+				src_groups.classed("highlight",false).classed("text-visible",false)
+				ux_layer.src_groups.classed("highlight",false).classed("text-visible",false)
+				dst_groups.classed("highlight",false).classed("text-visible",false);
+				ux_layer.dst_groups.classed("highlight",false).classed("text-visible",false);
+
+				dst_sub_groups.classed("highlight",false)
+				src_sub_groups.classed("highlight",false)	
+			}
+		);
+	
 	inc=0;
 	ux_layer.src_public_groups=ux_layer.main.append("g")
 			.attr("transform",src_public.attr("transform"))
@@ -1276,7 +1381,9 @@ function BubbleFlowChart(data) {
 
 	//src_groups
 	//ux_layer.main.selectAll(".ux-src")
-	ux_layer.src_groups
+	//ux_layer.src_groups
+	/*
+	ux_layer.src_group.selectAll("g.ux-src")
 			.on("click",function(d){
 				svg.classed("interacting",true).classed("clicked",!svg.classed("clicked"));
 			})
@@ -1352,6 +1459,7 @@ function BubbleFlowChart(data) {
 				dst_sub_groups.classed("highlight",false)
 				src_sub_groups.classed("highlight",false)	
 			})
+	*/
 	
 	//src_public_groups
 	//ux_layer.main.selectAll(".ux-src_public")
