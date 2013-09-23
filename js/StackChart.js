@@ -75,7 +75,10 @@ function StackChart(data,options){
 							.attr("dy", ".71em")
 							.text(function(d){
 								return d3.time.format("%Y")(d.x);
-							});
+							})
+							.on("click",function(d){
+								options.callback(d3.time.format("%Y")(d.x));
+							})
 	vrules
 		.append("line")
 			.attr("y2",function(d){
@@ -135,6 +138,5 @@ function StackChart(data,options){
 						})
 		
 	}
-	
 
 }

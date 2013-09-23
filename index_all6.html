@@ -202,7 +202,7 @@
 		var flows;
 
 		
-		d3.csv("data/pubblico_privato_2009.csv",function(d){
+		d3.csv("data/pubblico_privato.csv",function(d){
 			return {
 				to:d.Target.toLowerCase(),
 				from:d.Source.toLowerCase(),//+(d.Rata||"")+(d.Regione||""),
@@ -264,6 +264,9 @@
 					right:80,
 					bottom:20,
 					left:80
+				},
+				callback:function(d){
+					flows.loadCSV("data/pubblico_privato_"+d+".csv")
 				}
 			})
 

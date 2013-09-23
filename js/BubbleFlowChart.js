@@ -61,11 +61,14 @@ function BubbleFlowChart(data) {
 			max=getImportantValues()
 			extent=getExtents();
 
-			delta=getDelta();
-
 			updateScales();
 
-			updateCircleGroups();
+			delta=getDelta();
+
+			
+
+			updateCircleGroups(src,src_groups,src_sub_groups,src_size,"private","src");
+			updateCircleGroups(src_public,src_public_groups,src_public_sub_groups,src_public_size,"public","src_public");
 		});
 	}
 
@@ -270,7 +273,7 @@ function BubbleFlowChart(data) {
 	//var scale_h=d3.scale.sqrt().domain([0,Math.max(max.src,max.dst)]).range([0,HEIGHT-dst_size.length*step])
 	var scale_y=d3.scale.linear().domain([0,max.total]).range([0,HEIGHT-d3.max([src_size.length,src_public_size.length,dst_size.length])*step]);
 
-	var max_r=HEIGHT-d3.max([src_size.length,src_public_size.length,dst_size.length])*step;
+	//var max_r=HEIGHT-d3.max([src_size.length,src_public_size.length,dst_size.length])*step;
 
 	var radius={
 		min:scale_y(d3.min([extent.src[0],extent.src_public[0],extent.dst[0]])),
@@ -301,31 +304,47 @@ function BubbleFlowChart(data) {
 		return r;
 	};
 
-	var scale_color = d3.scale.linear()
+	var scale_color1 = d3.scale.linear()
 						    .domain(extent.flows_private)
 						    .range(["#23a4db","#23a4db"])
+						    .interpolate(d3.interpolateLab);
 						    //.range(["#9FC9E1","#1E648C"])
 						    //.range(["hsl(72,60%,89%)", "hsl(348,100%,43%)"]);
 	var scale_color2 = d3.scale.linear()
 						    .domain(extent.flows_public)
 						    .range(["#d8232a","#d8232a"])
+						    .interpolate(d3.interpolateLab);
 						    //.range(["#ffff00","#ff6600"])
 
-	console.log("SCALE_COLOR DOMAIN",scale_color.domain())
+	var scale_color={
+		"private":scale_color1,
+		"public":scale_color2
+	};
+
+	//console.log("SCALE_COLOR DOMAIN",scale_color.domain())
 
 	//HEIGHT=HEIGHT*2;
 	
 	function getDelta() {
 		return {
-			src:(HEIGHT - d3.sum(src_size,function(d){
-								return scale_r(d.values["total"])*2;
-							}))/2,
-			src_public:(HEIGHT-d3.sum(src_public_size,function(d){
-								return scale_r(d.values["total"])*2;
-							}))/2,
-			dst:(HEIGHT-d3.sum(dst_size,function(d){
+			src:{
+				x:0,
+				y:(HEIGHT - d3.sum(src_size,function(d){
 								return scale_r(d.values["total"])*2;
 							}))/2
+			},
+			src_public:{
+					x:(WIDTH-margins.right-margins.left-box_w),
+					y:(HEIGHT-d3.sum(src_public_size,function(d){
+								return scale_r(d.values["total"])*2;
+							}))/2
+			},
+			dst:{
+				x:((WIDTH-margins.right-margins.left)/2-box_w/2),
+				y:(HEIGHT-d3.sum(dst_size,function(d){
+								return scale_r(d.values["total"])*2;
+							}))/2
+			}
 		}
 	}
 	delta=getDelta();
@@ -335,7 +354,7 @@ function BubbleFlowChart(data) {
 		//var scale_h=d3.scale.sqrt().domain([0,Math.max(max.src,max.dst)]).range([0,HEIGHT-dst_size.length*step])
 		scale_y.domain([0,max.total]);
 
-		var max_r=HEIGHT-d3.max([src_size.length,src_public_size.length,dst_size.length])*step;
+		//var max_r=HEIGHT-d3.max([src_size.length,src_public_size.length,dst_size.length])*step;
 
 		var radius={
 			min:scale_y(d3.min([extent.src[0],extent.src_public[0],extent.dst[0]])),
@@ -346,6 +365,8 @@ function BubbleFlowChart(data) {
 
 		scale_r2.domain([min_r_domain*1,max.total]);
 		scale_r2.range([0,radius.max/2]);
+
+		console.log("TESTING:","scale_y(1000000)",scale_y(1000000))
 
 	}
 
@@ -385,15 +406,27 @@ function BubbleFlowChart(data) {
 
 	var src=svg.append("g")
 				.attr("id","src")
-				.attr("transform","translate("+0+","+delta.src+")")
+				.attr("transform","translate("+0+","+0+")");
+
+	src.attr("transform","translate("+delta.src.x+","+delta.src.x+")")
+
+	var src_groups,
+		src_sub_groups;
+
+	updateCircleGroups(src,src_groups,src_sub_groups,src_size,"private","src");
 
 	var dst=svg.append("g")
 				.attr("id","dst")
-				.attr("transform","translate("+((WIDTH-margins.right-margins.left)/2-box_w/2)+","+delta.dst+")");
+				.attr("transform","translate("+delta.dst.x+","+delta.dst.y+")");
 
 	var src_public=svg.append("g")
 				.attr("id","src_public")
-				.attr("transform","translate("+(WIDTH-margins.right-margins.left-box_w)+","+delta.src_public+")");
+				.attr("transform","translate("+delta.src_public.x+","+delta.src_public.y+")");
+
+	var src_public_groups,
+		src_public_sub_groups;
+
+	updateCircleGroups(src_public,src_public_groups,src_public_sub_groups,src_public_size,"public","src_public");
 
 	var flows=svg.append("g")
 				.attr("id","flows_v")
@@ -403,6 +436,8 @@ function BubbleFlowChart(data) {
 			main:svg.append("g")
 					.attr("id","ux")
 	};
+
+
 
 	var inc=0;
 	ux_layer.src_groups=ux_layer.main.append("g")
@@ -635,85 +670,58 @@ function BubbleFlowChart(data) {
 
 	var labels_src=svg.append("g")
 				.attr("id","labels_src")
-				.attr("transform","translate("+0+","+delta.src+")")
+				.attr("transform","translate("+0+","+delta.src.y+")")
 
 	var labels_dst=svg.append("g")
 				.attr("id","labels_dst")
-				.attr("transform","translate("+(WIDTH-margins.right-margins.left-box_w)+","+delta.dst+")");
+				.attr("transform","translate("+(WIDTH-margins.right-margins.left-box_w)+","+delta.dst.y+")");
 
-	function updateCircleGroups(groups,sub_groups,data) {
+	function updateCircleGroups(node,groups,sub_groups,data,t,delta_group) {
 		var inc=0;
 		
-		src_groups.remove();
+		
 
-		src.attr("transform","translate("+0+","+delta.src+")")
+		node.transition().duration(1000).attr("transform","translate("+delta[delta_group].x+","+delta[delta_group].y+")")
 
-		src_groups=src.selectAll("g")
-			.data(src_size,function(d){
+		
+		groups=node.selectAll("g.fund").data(data,function(d){
 				return d.key;
-			})
-			.enter()
-			.append("g")
-			.attr("transform",function(d,i){
-				d.delta=i*step
-				var new_y=(scale_r(d.values.total))+inc;
-				inc=inc+scale_r(d.values.total)*2;
-				return "translate(0,"+(new_y-scale_r(d.values.total))+")";
 			});
+		
+		console.log("exit",groups.exit())
+		groups.exit().transition().duration(1000).style("opacity","1e-6").remove();
 
-		//src_groups.exit().remove();
+		var inc=0;
+		var new_groups=groups
+								.enter()
+								.append("g")
+								.attr("rel",function(d){
+									return d.key;
+								})
+								.attr("class","fund")
+								.style("opacity","1e-6")
+								.attr("transform",function(d,i){
+									d.delta=i*step
+									var new_y=(scale_r(d.values.total))+inc;
+									inc=inc+scale_r(d.values.total)*2;
+									return "translate(0,0)";
+									//return "translate(0,"+(new_y-scale_r(d.values.total))+")";
+								});
 
-		src_groups
-			.attr("transform",function(d,i){
-				d.delta=i*step
-				var new_y=(scale_r(d.values.total))+inc;
-				inc=inc+scale_r(d.values.total)*2;
-				return "translate(0,"+(new_y-scale_r(d.values.total))+")";
-			});
+
+		console.log("new_groups",new_groups)
 
 		
-		src_sub_groups = src_groups.append("g")
-					.attr("transform",function(d){
-						return "translate(0,"+(scale_r(d.values.total))+")"
-					})
-					.selectAll("circle")
-					.data(function(d){
-						//console.log("MERDA",d)
-						return d.values.flows.map(function(sub_d){
-							return {
-								from:sub_d.from,
-								to:sub_d.to,
-								flow:sub_d.flow,
-								radius: d.values.total - (sub_d.offset||0)
-							}
-						})
-					})
-						.enter()
-						.append("circle")
-							.attr("class","sub private")
-							.attr("rel",function(d){
-								return d.radius+": "+scale_r(d.radius)+" flow:"+d.flow;
-							})
-							.attr("cx",0)
-							.attr("cy",0)
-							.attr("r",function(d,i){
-								var r=scale_r(d.radius);
-								if (r<0.5)
-									return 0.25;
-								return r;
-								return scale_r(d.radius);///Math.PI);
-								return scale_y(d.radius)/2;
-							})
-							.classed("no-stroke",function(d,i){
-								return scale_r(d.radius)<3;// && i>0;
-							})
-							.style("fill",function(d){
-								scale_color.interpolate(d3.interpolateLab);
-								//console.log(d.radius,scale_color(d.radius))
-								return scale_color(d.flow);
-							})
-		
-		src_groups.append("circle")
+
+		new_groups.append("g")
+			.attr("class","center")
+			.attr("transform",function(d){
+				return "translate(0,"+(scale_r(d.values.total))+")"
+			});
+
+
+		new_groups.append("circle")
+					.attr("class","center")
 					.attr("cx",0)
 					.attr("cy",function(d){
 						return (scale_r(d.values.total));
@@ -728,16 +736,101 @@ function BubbleFlowChart(data) {
 						"fill":"#fff",
 						"stroke":"none"
 					})
-		
+
+		sub_groups=groups
+							.select("g")
+								.attr("transform",function(d){
+									return "translate(0,"+(scale_r(d.values.total))+")"
+								})
+								.selectAll("circle")
+								.data(function(d){
+									//console.log("MERDA",d)
+									return d.values.flows.map(function(sub_d){
+										return {
+											parent:d.key,
+											from:sub_d.from,
+											to:sub_d.to,
+											flow:sub_d.flow,
+											radius: d.values.total - (sub_d.offset||0)
+										}
+									})
+								},function(d){
+									return d.from+"-"+d.to;
+								});
+
+		sub_groups.exit().transition().style("opacity","1e-6").remove();
+
+		sub_groups.enter()
+				.append("circle")
+					.attr("class","sub "+t)
+					.attr("rel",function(d){
+						return d.radius+": "+scale_r(d.radius)+" flow:"+d.flow;
+					})
+					.attr("cx",0)
+					.attr("cy",0)
+					.style("opacity","1e-6")
+					.attr("r",function(d,i){
+						return 0;
+						var r=scale_r(d.radius);
+						if (r<0.5)
+							return 0.25;
+						return r;
+						return scale_r(d.radius);///Math.PI);
+						return scale_y(d.radius)/2;
+					})
+					.classed("no-stroke",function(d,i){
+						return scale_r(d.radius)<3;// && i>0;
+					})
+					.style("fill",function(d){
+						//return "#000";
+						//scale_color.interpolate(d3.interpolateLab);
+						//console.log(d.radius,scale_color(d.radius))
+						return scale_color[t](d.flow);
+					})
+
+
+		var inc=0;
+		groups
+			.transition()
+			.duration(1000)
+			.attr("transform",function(d,i){
+				d.delta=i*step
+				var new_y=(scale_r(d.values.total))+inc;
+				inc=inc+scale_r(d.values.total)*2;
+				return "translate(0,"+(new_y-scale_r(d.values.total))+")";
+			})
+			.select("circle.center")
+				.attr("cy",function(d){
+					return (scale_r(d.values.total));
+				});
+
+		sub_groups
+			.transition()
+			.duration(1000)
+			//.style("opacity","1")
+			.attr("r",function(d,i){
+				var r=scale_r(d.radius);
+				if (r<0.5)
+					return 0.25;
+				return r;
+			})
+
 	}
 
+	
+
+	/*
 	var inc=0;
-	var src_groups=src.selectAll("g")
+	var src_groups=src.selectAll("g.fund")
 			.data(src_size,function(d){
 				return d.key;
 			})
 			.enter()
 			.append("g")
+			.attr("class","fund")
+			.attr("rel",function(d){
+				return d.key;
+			})
 			.attr("transform",function(d,i){
 				d.delta=i*step
 				var new_y=(scale_r(d.values.total))+inc;
@@ -760,6 +853,8 @@ function BubbleFlowChart(data) {
 							radius: d.values.total - (sub_d.offset||0)
 						}
 					})
+				},function(d){
+					return d.from+"-"+d.to;
 				})
 					.enter()
 					.append("circle")
@@ -787,6 +882,7 @@ function BubbleFlowChart(data) {
 						})
 	
 	src_groups.append("circle")
+				.attr("class","center")
 				.attr("cx",0)
 				.attr("cy",function(d){
 					return (scale_r(d.values.total));
@@ -801,7 +897,10 @@ function BubbleFlowChart(data) {
 					"fill":"#fff",
 					"stroke":"none"
 				})
+	*/
+
 	
+	/*
 	inc=0;
 	var src_public_groups=src_public.selectAll("g")
 			.data(src_public_size,function(d){
@@ -871,7 +970,7 @@ function BubbleFlowChart(data) {
 					"fill":"#fff",
 					"stroke":"none"
 				})
-	
+	*/
 	inc=0;
 	var dst_groups=dst.selectAll("g")
 			.data(dst_size,function(d){
@@ -925,8 +1024,9 @@ function BubbleFlowChart(data) {
 							return scale_y(d.radius)/2;
 						})
 						.style("fill",function(d){
-							scale_color.interpolate(d3.interpolateLab);
+							//scale_color.interpolate(d3.interpolateLab);
 							//console.log(radius.max,d.radius,scale_color(d.radius))
+							return scale_color[d.t](d.flow);
 							return d.t=="private"?scale_color(d.flow):scale_color2(d.flow)
 							return scale_color(d.flow);
 						});
@@ -960,8 +1060,8 @@ function BubbleFlowChart(data) {
 		var x0=(WIDTH-margins.right-margins.left-box_w-2),
 			x1=(WIDTH-margins.right-margins.left)/2+box_w/2+2,
 			h=scale_y(d.size),
-			y0=scale_y(d.src_outer_offset+d.src_inner_offset)+ delta.src_public,
-			y1=scale_y(d.dst_outer_offset+d.dst_inner_offset)+ delta.dst;
+			y0=scale_y(d.src_outer_offset+d.src_inner_offset)+ delta.src_public.y,
+			y1=scale_y(d.dst_outer_offset+d.dst_inner_offset)+ delta.dst.y;
 
 		return "M"+x0+","+y0+"L"+x1+","+y1+"L"+x1+","+(y1+h)+"L"+x0+","+(y0+h)+"Z";
 	}
@@ -971,13 +1071,13 @@ function BubbleFlowChart(data) {
 			x1=(WIDTH-margins.right-margins.left)/2-box_w/2,//-2,
 			h=scale_y(d.size)/2,
 			y0=0,//scale_y(d.src_outer_offset)+scale_y(d.src_inner_offset)/2+d.src_index*step + delta.src,
-			y1=delta.dst; //scale_y(d.dst_outer_offset)+scale_y(d.dst_inner_offset)/2+d.dst_index*step + delta.dst;//+h/2;
+			y1=delta.dst.y; //scale_y(d.dst_outer_offset)+scale_y(d.dst_inner_offset)/2+d.dst_index*step + delta.dst;//+h/2;
 
 		if(h<1)
 			h=1;
 
-		y1= (scale_y(d.dst_outer_offset)+scale_y(d.dst_inner_offset)/2+d.dst_index*step + delta.dst) - (scale_y(d.src_outer_offset)+scale_y(d.src_inner_offset)/2+d.src_index*step);
-		y1-= delta.src;
+		y1= (scale_y(d.dst_outer_offset)+scale_y(d.dst_inner_offset)/2+d.dst_index*step + delta.dst.y) - (scale_y(d.src_outer_offset)+scale_y(d.src_inner_offset)/2+d.src_index*step);
+		y1-= delta.src.y;
 		
 		
 		// flows are under the center
@@ -1023,14 +1123,14 @@ function BubbleFlowChart(data) {
 			x1=-(WIDTH-margins.right-margins.left)/2+box_w/2,//+2,
 			h=scale_y(d.size)/2,
 			y0=0,//scale_y(d.src_outer_offset)+scale_y(d.src_inner_offset)/2+d.src_index*step + delta.src_public,
-			y1=delta.dst; //scale_y(d.dst_outer_offset)+scale_y(d.dst_inner_offset)/2+d.dst_index*step + delta.dst;//+h/2;
+			y1=delta.dst.y; //scale_y(d.dst_outer_offset)+scale_y(d.dst_inner_offset)/2+d.dst_index*step + delta.dst;//+h/2;
 		//console.log(d)
 		//y1= (scale_y(d.dst_outer_offset)+scale_y(d.dst_inner_offset)/2+d.dst_index*step + delta.dst) - (scale_y(d.src_outer_offset)+scale_y(d.src_inner_offset)/2+d.src_index*step);
 
-		y1= (scale_y(d.dst_outer_offset)+scale_y(d.dst_inner_offset)/2 + delta.dst) - (scale_y(d.src_outer_offset)+scale_y(d.src_inner_offset)/2);
+		y1= (scale_y(d.dst_outer_offset)+scale_y(d.dst_inner_offset)/2 + delta.dst.y) - (scale_y(d.src_outer_offset)+scale_y(d.src_inner_offset)/2);
 
 		
-		y1-= delta.src_public;
+		y1-= delta.src_public.y;
 		
 		/*
 		// flows are under the center
@@ -1091,7 +1191,7 @@ function BubbleFlowChart(data) {
 
 					var h=scale_y(d.size)/2-1,
 						y=scale_y(d.src_outer_offset)+scale_y(d.src_inner_offset)/2+d.src_index*step;
-					y+=((d.t=="private")?delta.src:delta.src_public);
+					y+=((d.t=="private")?delta.src.y:delta.src_public.y);
 
 					return "translate("+x+","+y+")";
 				})
@@ -1119,6 +1219,7 @@ function BubbleFlowChart(data) {
 				return d.from+","+d.to+":"+d.size;
 			})
 			.style("fill",function(d){
+				return scale_color[d.t](d.flow);
 				return d.t=="private"?scale_color(d.size):scale_color2(d.size)
 			})
 			
@@ -1140,7 +1241,9 @@ function BubbleFlowChart(data) {
 			})
 			.style("stroke",function(d){
 				if(scale_y(d.size)<2) {
-					d.t=="private"?scale_color(d.size):scale_color2(d.size)	
+					//????????????
+					scale_color[d.t](d.flow);
+					//d.t=="private"?scale_color(d.size):scale_color2(d.size)	
 					//return "#333";//d.t=="private"?scale_color(d.size):scale_color2(d.size)	
 				}
 			})
