@@ -415,7 +415,13 @@ function BubbleFlowChart(data) {
 	var src_groups,
 		src_sub_groups;
 
-	updateCircleGroups(src,src_groups,src_sub_groups,src_size,"src");
+	var funding_groups={
+		src:{},
+		src_public:{},
+		dst:{}
+	}
+
+	funding_groups.src=updateCircleGroups(src,src_groups,src_sub_groups,src_size,"src");
 
 	var dst=svg.append("g")
 				.attr("id","dst")
@@ -424,7 +430,7 @@ function BubbleFlowChart(data) {
 	var dst_groups,
 		dst_sub_groups;
 
-	updateCircleGroups(dst,dst_groups,dst_sub_groups,dst_size,"dst");
+	funding_groups.dst=updateCircleGroups(dst,dst_groups,dst_sub_groups,dst_size,"dst");
 
 	var src_public=svg.append("g")
 				.attr("id","src_public")
@@ -433,7 +439,7 @@ function BubbleFlowChart(data) {
 	var src_public_groups,
 		src_public_sub_groups;
 
-	updateCircleGroups(src_public,src_public_groups,src_public_sub_groups,src_public_size,"src_public");
+	funding_groups.src_public=updateCircleGroups(src_public,src_public_groups,src_public_sub_groups,src_public_size,"src_public");
 
 	var flows=svg.append("g")
 				.attr("id","flows_v")
@@ -467,24 +473,71 @@ function BubbleFlowChart(data) {
 
 	function updateAllUXLayers() {
 
-		updateUXLayer(
+
+
+		ux_layer.src.ux=updateUXLayer(
 			ux_layer.src,
-			src_size
+			src_size,
+			funding_groups.src,
+			[funding_groups.dst],
+			function(d){
+				
+				ux_layer.dst.ux
+					.filter(function(l){
+						return l.values.flows.filter(function(f){
+							return f.from==d.key;
+						}).length>0;
+					})
+					.classed("highlight",true)
+					.classed("text-visible",function(d){
+						return scale_y(d.values.total)+step*2>12;
+					});
+			}
 		);
 
-		updateUXLayer(
+		ux_layer.src_public.ux=updateUXLayer(
 			ux_layer.src_public,
-			src_public_size
+			src_public_size,
+			funding_groups.src_public,
+			[funding_groups.dst],
+			function(d){
+				ux_layer.dst.ux
+					.filter(function(l){
+						return l.values.flows.filter(function(f){
+							return f.from==d.key;
+						}).length>0;
+					})
+					.classed("highlight",true)
+					.classed("text-visible",function(d){
+						return scale_y(d.values.total)+step*2>12;
+					});
+			}
 		);
 
-		updateUXLayer(
+		ux_layer.dst.ux=updateUXLayer(
 			ux_layer.dst,
-			dst_size
+			dst_size,
+			funding_groups.dst,
+			[],
+			function(d){
+				[ux_layer.src.ux,ux_layer.src_public.ux].forEach(function(ux){
+					ux
+						.filter(function(l){
+							return l.values.flows.filter(function(f){
+								return f.to==d.key;
+							}).length>0;
+						})
+						.classed("highlight",true)
+						.classed("text-visible",function(d){
+							return scale_y(d.values.total)+step*2>12;
+						});
+				});
+			}
 		);
 
 	}	
 
-	function updateUXLayer(layer,data,over_callback,out_callback) {
+	function updateUXLayer(layer,data,from,to,over_callback,out_callback) {
 		var inc=0;
 		
 		layer.node.attr("transform","translate("+delta[layer.delta].x+","+delta[layer.delta].y+")")
@@ -575,6 +628,50 @@ function BubbleFlowChart(data) {
 							.classed("highlight",function(f){
 								return f.from==d.key;
 							});
+
+
+					//console.log("!!!!!!!!!",groups)
+
+					from.main
+						.filter(function(src){
+							return src.key==d.key;
+						})
+						.classed("highlight",true)
+						//.classed("text-visible",true)
+					
+					from.sub
+						.filter(function(sub_d){
+							return sub_d.from==d.key;
+						})
+						.classed("highlight",true)
+
+					groups
+						.filter(function(src){
+							return src.key==d.key;
+						})
+						.classed("highlight",true)
+
+					to.forEach(function(t_group){
+
+						t_group.main
+							.filter(function(l){
+								return l.values.flows.filter(function(f){
+									return f.from==d.key;
+								}).length>0;
+							})
+							.classed("highlight",true)
+							.classed("text-visible",function(d){
+								return scale_y(d.values.total)+step*2>12;
+							});
+
+						t_group.sub
+							.filter(function(sub_d){
+								return sub_d.from==d.key;
+							})
+							.classed("highlight",true)
+
+					})
+
 					if(over_callback)
 						over_callback(d);
 					/*
@@ -585,11 +682,39 @@ function BubbleFlowChart(data) {
 					if(svg.classed("clicked"))
 						return;
 
-					svg.classed("interacting",false)
+					svg
+						.classed("interacting",false)
+						.selectAll(".highlight")
+							.classed("highlight",false);
 
+					return;
+					/*
+					flows
+						.selectAll("path.highlight")
+							.classed("highlight",false);
+					
+					
+					from.main.classed("highlight",false).classed("text-visible",false)
+					from.sub.classed("highlight",false)
+					groups.classed("highlight",false).classed("text-visible",false)
+
+					to.forEach(function(t_group){
+						t_group.main.classed("highlight",false).classed("text-visible",false);
+						//ux_layer.dst_groups.classed("highlight",false).classed("text-visible",false);
+						t_group.sub.classed("highlight",false)
+					});
+					
+					ux_layer.dst.ux
+						.filter(function(src){
+							return src.key==d.key;
+						})
+						.classed("highlight",true);
+					*/
 					if(out_callback)
 						out_callback(d);
 				})
+
+		return groups;
 	}
 	updateAllUXLayers();
 	/*
@@ -858,20 +983,20 @@ function BubbleFlowChart(data) {
 	function updateCircleGroups(node,groups,sub_groups,data,delta_group) {
 		var inc=0;
 		
-		
+		var groups={};
 
 		node.transition().duration(1000).attr("transform","translate("+delta[delta_group].x+","+delta[delta_group].y+")")
 
 		
-		groups=node.selectAll("g.fund").data(data,function(d){
+		groups.main=node.selectAll("g.fund").data(data,function(d){
 				return d.key;
 			});
 		
-		console.log("exit",groups.exit())
-		groups.exit().transition().duration(1000).style("opacity","1e-6").remove();
+		console.log("exit",groups.main.exit())
+		groups.main.exit().transition().duration(1000).style("opacity","1e-6").remove();
 
 		var inc=0;
-		var new_groups=groups
+		var new_groups=groups.main
 								.enter()
 								.append("g")
 								.attr("rel",function(d){
@@ -916,7 +1041,7 @@ function BubbleFlowChart(data) {
 						"stroke":"none"
 					})
 
-		sub_groups=groups
+		groups.sub=groups.main
 							.select("g")
 								.attr("transform",function(d){
 									return "translate(0,"+(scale_r(d.values.total))+")"
@@ -938,9 +1063,9 @@ function BubbleFlowChart(data) {
 									return d.from+"-"+d.to;
 								});
 
-		sub_groups.exit().transition().style("opacity","1e-6").remove();
+		groups.sub.exit().transition().style("opacity","1e-6").remove();
 
-		sub_groups.enter()
+		groups.sub.enter()
 				.append("circle")
 					.attr("class",function(d){
 						return "sub "+d.t;
@@ -974,7 +1099,7 @@ function BubbleFlowChart(data) {
 					
 
 		var inc=0;
-		groups
+		groups.main
 			.transition()
 			.duration(1000)
 			.attr("transform",function(d,i){
@@ -988,7 +1113,7 @@ function BubbleFlowChart(data) {
 					return (scale_r(d.values.total));
 				});
 
-		sub_groups
+		groups.sub
 				.classed("no-stroke",function(d,i){
 					return scale_y(d.flow)<3;// && i>0;
 				})
@@ -1004,6 +1129,8 @@ function BubbleFlowChart(data) {
 						return 0.25;
 					return r;
 				})
+
+		return groups;
 	}
 
 	function getStraightPath(d) {
