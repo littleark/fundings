@@ -9,20 +9,30 @@ function BubbleFlowChart(data) {
 
 	HEIGHT=HEIGHT-margins.top-margins.bottom;
 
-	var src_size=[],
-		dst_size=[],
-		src_public_size=[];
+	var self=this;
+
+	var step=0;
+
+	this.src_size=[];
+	this.dst_size=[];
+	this.src_public_size=[];
 	
-	var flows_size=[],
-		flows_public_size=[];
+	this.flows_size=[];
+	this.flows_public_size=[];
 
 	var max={},
 		extent={};
 
 	var delta={};
 
-	this.loadCSV=function(url) {
-		d3.csv(url,function(d){
+	var funding_groups={
+		src:{},
+		src_public:{},
+		dst:{}
+	}
+
+	this.loadCSV=function(year) {
+		d3.csv("data/pubblico_privato_"+year+".csv",function(d){
 			return {
 				to:d.Target.toLowerCase(),
 				from:d.Source.toLowerCase(),//+(d.Rata||"")+(d.Regione||""),
@@ -55,28 +65,50 @@ function BubbleFlowChart(data) {
 				return d.flow>0;
 			});
 
-			updateData(data);
-			updateFlows();
-
-			max=getImportantValues()
-			extent=getExtents();
-
-			updateScales();
-
-			delta=getDelta();
+			updateYear(year);
+			update(data);
 
 			
-
-			updateCircleGroups(src,src_groups,src_sub_groups,src_size,"src");
-			updateAllUXLayers();
-			updateCircleGroups(src_public,src_public_groups,src_public_sub_groups,src_public_size,"src_public");
-			updateCircleGroups(dst,dst_groups,dst_sub_groups,dst_size,"dst");
 		});
+	}
+
+	function update(__data,max_r) {
+
+		console.log("updating with new data",__data)
+
+		updateData(__data);
+		updateFlowsData();
+
+		max=getImportantValues(__data)
+
+
+		console.log("MAAAAAAAAAAAAAAAX",max)
+
+		extent=getExtents();
+
+		updateScales(max_r);
+
+		delta=getDelta();
+
+		console.log("UPDATED SRC_SIZE",self.src_size.length)
+		console.log("UPDATED SRC_PUBLIC_SIZE",self.src_public_size.length)
+		console.log("UPDATED DST_SIZE",self.dst_size.length)
+
+		funding_groups.src=updateCircleGroups(src,src_groups,src_sub_groups,self.src_size,"src");
+		funding_groups.dst=updateCircleGroups(dst,dst_groups,dst_sub_groups,self.dst_size,"dst");
+		funding_groups.src_public=updateCircleGroups(src_public,src_public_groups,src_public_sub_groups,self.src_public_size,"src_public");
+
+		updateFlows();
+
+		updateAllUXLayers(self.src_size,self.src_public_size,self.dst_size);
 	}
 
 	function updateData(data){
 
 		function getNestedValues(t,direction,data) {
+			if(!data.length>0)
+				return [];
+
 			var values=d3.nest()
 					.key(function(d){
 						return d[direction];
@@ -130,20 +162,20 @@ function BubbleFlowChart(data) {
 		}
 
 		//PRIVATE
-		src_size=[];
-		src_size=getNestedValues("private","from",data.filter(function(d){
+		//src_size=[];
+		self.src_size=getNestedValues("private","from",data.filter(function(d){
 						return d.t=="private";
 					}));
 
 		//PUBLIC
-		src_public_size=[];
-		src_public_size=getNestedValues("public","from",data.filter(function(d){
+		//src_public_size=[];
+		self.src_public_size=getNestedValues("public","from",data.filter(function(d){
 						return d.t=="public";
 					}));
 
 		//DESTINATION
-		dst_size=[];
-		dst_size=getNestedValues(null,"to",data);
+		//dst_size=[];
+		self.dst_size=getNestedValues(null,"to",data);
 
 	}
 
@@ -170,7 +202,7 @@ function BubbleFlowChart(data) {
 					src_inner_offset:src_d.offset || 0
 				};
 
-				var tmp_dst=dst_size.filter(function(t,i){
+				var tmp_dst=self.dst_size.filter(function(t,i){
 					t.index=i;
 					return t.key==flow.to;
 				})[0];
@@ -201,33 +233,34 @@ function BubbleFlowChart(data) {
 	
 	
 	
-	function updateFlows() {
-		flows_size=updateFlow(src_size,"private");
-		flows_public_size=updateFlow(src_public_size,"public");
+	function updateFlowsData() {
+		self.flows_size=updateFlow(self.src_size,"private");
+		self.flows_public_size=updateFlow(self.src_public_size,"public");
 		
-		console.log("FLOWS",flows_size);
-		console.log("FLOWS PUBLIC",flows_public_size);
+		console.log("FLOWS",self.flows_size);
+		console.log("FLOWS PUBLIC",self.flows_public_size);
 	}
 	
-	updateFlows();
+	updateFlowsData();
 	
 
-	function getImportantValues() {
+	function getImportantValues(data) {
+
 		return {
-			src:d3.sum(src_size,function(d){
+			src:d3.sum(self.src_size,function(d){
 				return d.values["total"];
 			}),
-			src_public:d3.sum(src_public_size,function(d){
+			src_public:d3.sum(self.src_public_size,function(d){
 				return d.values["total"];
 			}),
-			dst:d3.sum(dst_size,function(d){
+			dst:d3.sum(self.dst_size,function(d){
 				return d.values["total"];
 			}),
-			y_src:d3.sum(src_size,function(d){
+			y_src:d3.sum(self.src_size,function(d){
 				//console.log(d.values["offset"])
 				return d.values["offset"];
 			}),
-			y_dst:d3.sum(dst_size,function(d){
+			y_dst:d3.sum(self.dst_size,function(d){
 				return d.values["offset"];
 			}),
 			total:d3.sum(data,function(d){
@@ -239,28 +272,28 @@ function BubbleFlowChart(data) {
 		};
 	}
 
-	max=getImportantValues();
+	max=getImportantValues(data);
 
 	console.log("ALL SUMS",max);
 
 	function getExtents() {
 		return {
-			src:d3.extent(src_size,function(d){
+			src:d3.extent(self.src_size,function(d){
 				return d.values["total"];
 			}),
-			src_public:d3.extent(src_public_size,function(d){
+			src_public:d3.extent(self.src_public_size,function(d){
 				return d.values["total"];
 			}),
-			dst:d3.extent(dst_size,function(d){
+			dst:d3.extent(self.dst_size,function(d){
 				return d.values["total"];
 			}),
-			flows:d3.extent(flows_size.concat(flows_public_size),function(d){
+			flows:d3.extent(self.flows_size.concat(self.flows_public_size),function(d){
 				return d.size;
 			}),
-			flows_private:d3.extent(flows_size,function(d){
+			flows_private:d3.extent(self.flows_size,function(d){
 				return d.size;
 			}),
-			flows_public:d3.extent(flows_public_size,function(d){
+			flows_public:d3.extent(self.flows_public_size,function(d){
 				return d.size;
 			})
 		};
@@ -270,10 +303,10 @@ function BubbleFlowChart(data) {
 
 	//console.log("extent",extent,[Math.min(extent.src[0],extent.dst[0]),Math.min(extent.src[0],extent.dst[0])])
 	console.log("!!!!!!!!",extent,[Math.min(extent.src[0],extent.dst[0]),Math.max(extent.src[0],extent.dst[0])])
-	console.log(src_size)
+	console.log(self.src_size)
 
 	//var scale_h=d3.scale.sqrt().domain([0,Math.max(max.src,max.dst)]).range([0,HEIGHT-dst_size.length*step])
-	var scale_y=d3.scale.linear().domain([0,max.total]).range([0,HEIGHT-d3.max([src_size.length,src_public_size.length,dst_size.length])*step]);
+	var scale_y=d3.scale.linear().domain([extent.flows[0],max.total]).range([0,HEIGHT-d3.max([self.src_size.length,self.src_public_size.length,self.dst_size.length])*step]);
 
 	//var max_r=HEIGHT-d3.max([src_size.length,src_public_size.length,dst_size.length])*step;
 
@@ -286,18 +319,7 @@ function BubbleFlowChart(data) {
 
 	var scale_r2=d3.scale.sqrt().domain([min_r_domain*1,max.total]).range([0,radius.max/2]);//max_r*max_r*Math.PI])
 	
-	var scale_r=function(d) {
-		var r=scale_r2(d);
-
-		if(r>3) {
-			return r*1.5;
-		}
-
-		return 0.05;
-
-	}
-	
-	scale_r=function(d){
+	var scale_r=function(d){
 		var r=scale_y(d)/2;
 
 		//if(r<1)
@@ -331,33 +353,49 @@ function BubbleFlowChart(data) {
 		return {
 			src:{
 				x:0,
-				y:(HEIGHT - d3.sum(src_size,function(d){
+				y:(HEIGHT - d3.sum(self.src_size,function(d){
 								return scale_r(d.values["total"])*2;
 							}))/2
 			},
 			src_public:{
 					x:(WIDTH-margins.right-margins.left-box_w),
-					y:(HEIGHT-d3.sum(src_public_size,function(d){
+					y:(HEIGHT-d3.sum(self.src_public_size,function(d){
 								return scale_r(d.values["total"])*2;
 							}))/2
 			},
 			dst:{
 				x:((WIDTH-margins.right-margins.left)/2-box_w/2),
-				y:(HEIGHT-d3.sum(dst_size,function(d){
+				y:(HEIGHT-d3.sum(self.dst_size,function(d){
 								return scale_r(d.values["total"])*2;
 							}))/2
 			}
 		}
 	}
-	delta=getDelta();
+	
 
-	function updateScales() {
+	function updateScales(max_r) {
 
 		//var scale_h=d3.scale.sqrt().domain([0,Math.max(max.src,max.dst)]).range([0,HEIGHT-dst_size.length*step])
-		scale_y.domain([0,max.total]);
+
+
+
+
+		scale_y.domain([0,max.total]); //extent.flows[0]
+
+		//if(scale_y(extent.flows[1])==HEIGHT)
+		//alert(scale_y(extent.flows[1])*2.6+" "+HEIGHT)
+
+		if(scale_y(extent.flows[1])*2.6 < HEIGHT) {
+			scale_y.range([0,HEIGHT-self.dst_size.length*step])
+		} else {
+			scale_y.range([10,200])
+		}
+
+		//scale_y.range([0,Math.min(HEIGHT-self.dst_size.length*step,500)])
+		//scale_y.range([0,max_r || HEIGHT-self.dst_size.length*step])
 
 		//var max_r=HEIGHT-d3.max([src_size.length,src_public_size.length,dst_size.length])*step;
-
+		/*
 		var radius={
 			min:scale_y(d3.min([extent.src[0],extent.src_public[0],extent.dst[0]])),
 			max:scale_y(d3.max([extent.src[1],extent.src_public[1],extent.dst[1]]))
@@ -366,13 +404,17 @@ function BubbleFlowChart(data) {
 		var min_r_domain=d3.min([extent.src[0],extent.src_public[0],extent.dst[0]]);
 
 		scale_r2.domain([min_r_domain*1,max.total]);
+
 		scale_r2.range([0,radius.max/2]);
 
 		console.log("TESTING:","scale_y(1000000)",scale_y(1000000))
+		*/
+		scale_r=function(d){ return scale_y(d)/2};
 
 	}
 
 	updateScales(); //useless call, just to test
+	delta=getDelta();
 
 	//d3.select("svg").attr("height",HEIGHT)
 
@@ -415,13 +457,9 @@ function BubbleFlowChart(data) {
 	var src_groups,
 		src_sub_groups;
 
-	var funding_groups={
-		src:{},
-		src_public:{},
-		dst:{}
-	}
+	
 
-	funding_groups.src=updateCircleGroups(src,src_groups,src_sub_groups,src_size,"src");
+	funding_groups.src=updateCircleGroups(src,src_groups,src_sub_groups,self.src_size,"src");
 
 	var dst=svg.append("g")
 				.attr("id","dst")
@@ -429,9 +467,9 @@ function BubbleFlowChart(data) {
 
 	var dst_groups,
 		dst_sub_groups;
-
-	funding_groups.dst=updateCircleGroups(dst,dst_groups,dst_sub_groups,dst_size,"dst");
-
+	
+	funding_groups.dst=updateCircleGroups(dst,dst_groups,dst_sub_groups,self.dst_size,"dst");
+	
 	var src_public=svg.append("g")
 				.attr("id","src_public")
 				.attr("transform","translate("+delta.src_public.x+","+delta.src_public.y+")");
@@ -439,7 +477,7 @@ function BubbleFlowChart(data) {
 	var src_public_groups,
 		src_public_sub_groups;
 
-	funding_groups.src_public=updateCircleGroups(src_public,src_public_groups,src_public_sub_groups,src_public_size,"src_public");
+	funding_groups.src_public=updateCircleGroups(src_public,src_public_groups,src_public_sub_groups,self.src_public_size,"src_public");
 
 	var flows=svg.append("g")
 				.attr("id","flows_v")
@@ -471,17 +509,23 @@ function BubbleFlowChart(data) {
 				delta:"dst"
 			};
 
-	function updateAllUXLayers() {
-
-
+	function updateAllUXLayers(src_size,src_public_size,dst_size) {
 
 		ux_layer.src.ux=updateUXLayer(
 			ux_layer.src,
 			src_size,
 			funding_groups.src,
 			[funding_groups.dst],
+			"from",
+			"end",
 			function(d){
 				
+				flows
+					.selectAll("path")
+						.classed("highlight",function(f){
+							return f.from==d.key;
+						});
+
 				ux_layer.dst.ux
 					.filter(function(l){
 						return l.values.flows.filter(function(f){
@@ -500,7 +544,16 @@ function BubbleFlowChart(data) {
 			src_public_size,
 			funding_groups.src_public,
 			[funding_groups.dst],
+			"from",
+			"start",
 			function(d){
+
+				flows
+					.selectAll("path")
+						.classed("highlight",function(f){
+							return f.from==d.key;
+						});
+
 				ux_layer.dst.ux
 					.filter(function(l){
 						return l.values.flows.filter(function(f){
@@ -518,8 +571,17 @@ function BubbleFlowChart(data) {
 			ux_layer.dst,
 			dst_size,
 			funding_groups.dst,
-			[],
+			[funding_groups.src,funding_groups.src_public],
+			"to",
+			"middle",
 			function(d){
+
+				flows
+					.selectAll("path")
+						.classed("highlight",function(f){
+							return f.to==d.key;
+						});
+
 				[ux_layer.src.ux,ux_layer.src_public.ux].forEach(function(ux){
 					ux
 						.filter(function(l){
@@ -537,26 +599,26 @@ function BubbleFlowChart(data) {
 
 	}	
 
-	function updateUXLayer(layer,data,from,to,over_callback,out_callback) {
+	function updateUXLayer(layer,sizes,from,to,direction,align,over_callback,out_callback) {
 		var inc=0;
 		
+		//console.log("UX DATA",from);
+
 		layer.node.attr("transform","translate("+delta[layer.delta].x+","+delta[layer.delta].y+")")
 
 		var groups=layer.node.selectAll("g.ux-src")
-				.data(data,function(d){
+				.data(sizes,function(d){
 					return d.key;
 				});
+
+		groups.exit().remove();
 
 		var new_groups=groups.enter()
 				.append("g")
 					.attr("rel",function(d){
 						return d.key;
 					})
-					.attr("class","ux-src");
-					
-		groups.exit().remove();
-
-		
+					.attr("class","ux-src");		
 
 		new_groups.append("rect")
 					.attr("x",function(d,i){
@@ -571,25 +633,12 @@ function BubbleFlowChart(data) {
 					.style("fill-opacity",0.1)
 		new_groups.append("text")
 						.attr("class","label")
-						/*
-						.classed("permanent",function(d){
-							return scale_r(d.values.total)*2+step*2>12;
-						})
-						
-						.attr("x",function(d,i){
-							return -scale_r(d.values.total)
-						})
-						.attr("y",function(d,i){
-							return scale_r(d.values.total);
-						})
-						*/
 						.attr("dy","0.25em")
-						.style("text-anchor","end")
+						.style("text-anchor",align)
 						.text(function(d){
 							return d.key;
 						});
 
-		//groups=layer.node.selectAll("g."+layer.class);
 		groups.attr("transform",function(d){
 						var x=0,
 							new_y=(scale_r(d.values.total))+inc;
@@ -607,6 +656,10 @@ function BubbleFlowChart(data) {
 						return scale_r(d.values.total)*2+step*2>12;
 					})
 					.attr("x",function(d,i){
+						if (align=="middle")
+							return 0;
+						if (align=="start")
+							return scale_r(d.values.total)	
 						return -scale_r(d.values.total)
 					})
 					.attr("y",function(d,i){
@@ -614,34 +667,41 @@ function BubbleFlowChart(data) {
 					})
 
 		//ux_layer.src_group.selectAll("g.ux-src")
-		new_groups
+		groups
 				.on("click",function(d){
-					svg.classed("interacting",true).classed("clicked",!svg.classed("clicked"));
+					
+					if(!svg.classed("clicked")) {
+							svg.classed("interacting",true).classed("clicked",true);
+
+							update(data.filter(function(t){
+								return d.key==t.to;
+							}),250)
+					} else {
+						svg.classed("interacting",false).classed("clicked",false);
+						update(data);
+					}
+					
+					
+					
+					
+
 				})
 				.on("mouseover",function(d){
+
 					if(svg.classed("clicked"))
 						return;
 					svg.classed("interacting",true)
-
-					flows
-						.selectAll("path")
-							.classed("highlight",function(f){
-								return f.from==d.key;
-							});
-
-
-					//console.log("!!!!!!!!!",groups)
 
 					from.main
 						.filter(function(src){
 							return src.key==d.key;
 						})
 						.classed("highlight",true)
-						//.classed("text-visible",true)
-					
+
 					from.sub
 						.filter(function(sub_d){
-							return sub_d.from==d.key;
+							//console.log(sub_d.to,"==",d.key)
+							return sub_d[direction]==d.key;
 						})
 						.classed("highlight",true)
 
@@ -653,10 +713,12 @@ function BubbleFlowChart(data) {
 
 					to.forEach(function(t_group){
 
+						//console.log(t_group)
+
 						t_group.main
 							.filter(function(l){
 								return l.values.flows.filter(function(f){
-									return f.from==d.key;
+									return f[direction]==d.key;
 								}).length>0;
 							})
 							.classed("highlight",true)
@@ -666,7 +728,8 @@ function BubbleFlowChart(data) {
 
 						t_group.sub
 							.filter(function(sub_d){
-								return sub_d.from==d.key;
+								//console.log(d.key,"==",sub_d.from)
+								return sub_d[direction]==d.key;
 							})
 							.classed("highlight",true)
 
@@ -687,216 +750,31 @@ function BubbleFlowChart(data) {
 						.selectAll(".highlight")
 							.classed("highlight",false);
 
-					return;
-					/*
-					flows
-						.selectAll("path.highlight")
-							.classed("highlight",false);
-					
-					
-					from.main.classed("highlight",false).classed("text-visible",false)
-					from.sub.classed("highlight",false)
-					groups.classed("highlight",false).classed("text-visible",false)
-
-					to.forEach(function(t_group){
-						t_group.main.classed("highlight",false).classed("text-visible",false);
-						//ux_layer.dst_groups.classed("highlight",false).classed("text-visible",false);
-						t_group.sub.classed("highlight",false)
-					});
-					
-					ux_layer.dst.ux
-						.filter(function(src){
-							return src.key==d.key;
-						})
-						.classed("highlight",true);
-					*/
 					if(out_callback)
 						out_callback(d);
 				})
 
 		return groups;
 	}
-	updateAllUXLayers();
-	/*
-	updateUXLayer(
-			ux_layer.src,
-			src_size,
-			function(d){
-				
-				flows
-					.selectAll("path")
-						.classed("highlight",function(f){
-							return f.from==d.key;
-						});
-				
-				ux_layer.src_groups
-					.filter(function(src){
-						return src.key==d.key;
-					})
-					.classed("highlight",true)
+	updateAllUXLayers(self.src_size,self.src_public_size,self.dst_size);
+	
 
+	function updateYear(year){
+		var txt=svg.selectAll("text.year")
+				.data([year])
 
-				//d3.select(this)
-				src_groups
-					.filter(function(src){
-						return src.key==d.key;
-					})
-					.classed("highlight",true)
-					.classed("text-visible",true)
-						
-
-				dst_groups
-					.filter(function(l){
-						return l.values.flows.filter(function(f){
-							return f.from==d.key;
-						}).length>0;
-					})
-					.classed("highlight",true)
-					.classed("text-visible",function(d){
-						return scale_y(d.values.total)+step*2>12;
-					});
-
-				//console.log("MOUSE OVER",d);
-
-				dst_sub_groups
-					.filter(function(sub_d){
-						return sub_d.from==d.key;
-					})
-					.classed("highlight",true)
-
-				src_sub_groups
-					.filter(function(sub_d){
-						return sub_d.from==d.key;
-					})
-					.classed("highlight",true)
-			},
-			function(d) {
-				flows
-					.selectAll("path.highlight")
-						.classed("highlight",false);
-				
-				
-				src_groups.classed("highlight",false).classed("text-visible",false)
-				ux_layer.src_groups.classed("highlight",false).classed("text-visible",false)
-				dst_groups.classed("highlight",false).classed("text-visible",false);
-				ux_layer.dst_groups.classed("highlight",false).classed("text-visible",false);
-
-				dst_sub_groups.classed("highlight",false)
-				src_sub_groups.classed("highlight",false)	
-			}
-		);
-	*/
-	/*
-	inc=0;
-	ux_layer.src_public_groups=ux_layer.main.append("g")
-			.attr("transform",src_public.attr("transform"))
-			.selectAll("g.ux-src_public")
-			.data(src_public_size,function(d){
-				return d.key;
-			})
+		txt
 			.enter()
-			.append("g")
-				.attr("class","ux-src_public")
-				.attr("transform",function(d){
-					var x=0,
-						new_y=(scale_r(d.values.total))+inc;
-						inc=inc+scale_r(d.values.total)*2;
-						y=new_y-scale_r(d.values.total);
-					return "translate("+x+","+y+")";
-				});
-
-	ux_layer.src_public_groups
-				.append("rect")
-				.attr("x",function(d,i){
-					return -((WIDTH-margins.right-margins.left-box_w)/4);
-				})
-				.attr("y",function(d){
-					return 0;
-					var new_y=(scale_r(d.values.total))+inc;
-					inc=inc+scale_r(d.values.total)*2;
-					return new_y-scale_r(d.values.total);
-				})
-				.attr("width",function(d){
-					return (margins.right + (WIDTH-margins.right-margins.left-box_w)/4);
-				})
-				.attr("height",function(d){
-					return scale_r(d.values.total)*2;
-				})
-				.style("fill-opacity",0)
-
-	ux_layer.src_public_groups
 				.append("text")
-				.attr("class","label")
-				.classed("permanent",function(d){
-					return scale_r(d.values.total)*2+step*2>12;
-				})
-				.attr("x",function(d,i){
-					return box_w+scale_r(d.values.total);
-				})
-				.attr("y",function(d,i){
-					return scale_r(d.values.total);
-				})
-				.attr("dy","0.25em")
-				.style("text-anchor","start")
-				.text(function(d){
-					return d.key;
-				});
-	*/
-	/*
-	inc=0;
-	ux_layer.dst_groups=ux_layer.main.append("g")
-			.attr("transform",dst.attr("transform"))
-			.selectAll("g.ux-dst")
-			.data(dst_size,function(d){
-				return d.key;
-			})
-			.enter()
-			.append("g")
-				.attr("class","ux-dst")
-				.attr("transform",function(d){
-					var x=0,
-						new_y=(scale_r(d.values.total))+inc;
-						inc=inc+scale_r(d.values.total)*2;
-						y=new_y-scale_r(d.values.total);
-					return "translate("+x+","+y+")";
-				});
+				.classed("year",true)
+				.attr("transform","translate("+(-margins.left+WIDTH/2)+",0)")
+				.attr("dy","-0.5em")
 
-	ux_layer.dst_groups.append("rect")
-				.attr("class","ux-dst")
-				.attr("x",function(d,i){
-					return -(WIDTH-margins.right-margins.left-box_w)/4;
-				})
-				.attr("y",function(d){
-					return 0;
-					var new_y=(scale_r(d.values.total))+inc;
-					inc=inc+scale_r(d.values.total)*2;
-					return new_y-scale_r(d.values.total);
-				})
-				.attr("width",(WIDTH-margins.right-margins.left-box_w)/2)
-				.attr("height",function(d){
-					return scale_r(d.values.total)*2;
-				})
-				.style("fill-opacity",0)
+		txt.text(year)
+	}
 
-	ux_layer.dst_groups
-				.append("text")
-				.attr("class","label")
-				.classed("permanent",function(d){
-					return scale_r(d.values.total)*2+step*2>12;
-				})
-				.attr("x",function(d,i){
-					return box_w;
-				})
-				.attr("y",function(d,i){
-					return scale_r(d.values.total);
-				})
-				.attr("dx",(-box_w/2)+"px")
-				.attr("dy","0.25em")
-				.style("text-anchor","middle")
-				.text(function(d){
-					return d.key;
-				});
-	*/
+	updateYear(2013)
+
 	var left_arrow=svg.append("g")
 						.attr("transform","translate("+(-margins.left)+",0)")
 	var right_arrow=svg.append("g")
@@ -980,7 +858,7 @@ function BubbleFlowChart(data) {
 				.attr("id","labels_dst")
 				.attr("transform","translate("+(WIDTH-margins.right-margins.left-box_w)+","+delta.dst.y+")");
 
-	function updateCircleGroups(node,groups,sub_groups,data,delta_group) {
+	function updateCircleGroups(node,groups,sub_groups,data,delta_group,filter) {
 		var inc=0;
 		
 		var groups={};
@@ -988,7 +866,10 @@ function BubbleFlowChart(data) {
 		node.transition().duration(1000).attr("transform","translate("+delta[delta_group].x+","+delta[delta_group].y+")")
 
 		
-		groups.main=node.selectAll("g.fund").data(data,function(d){
+		groups.main=node.selectAll("g.fund").data(data.filter(
+				filter || function(d){return true;}
+			),
+			function(d) {
 				return d.key;
 			});
 		
@@ -1058,6 +939,8 @@ function BubbleFlowChart(data) {
 											radius: d.values.total - (sub_d.offset||0),
 											t:sub_d.t
 										}
+									}).sort(function(a,b){
+										return b.flow - a.flow;
 									})
 								},function(d){
 									return d.from+"-"+d.to;
@@ -1114,6 +997,7 @@ function BubbleFlowChart(data) {
 				});
 
 		groups.sub
+				.order()
 				.classed("no-stroke",function(d,i){
 					return scale_y(d.flow)<3;// && i>0;
 				})
@@ -1162,16 +1046,27 @@ function BubbleFlowChart(data) {
 		if(h<1)
 			h=1;
 
-		y1= (scale_y(d.dst_outer_offset)+scale_y(d.dst_inner_offset)/2+d.dst_index*step + delta.dst.y) - (scale_y(d.src_outer_offset)+scale_y(d.src_inner_offset)/2+d.src_index*step);
-		y1-= delta.src.y;
+		if(d.from=="italia futura romagna - faenza") {
+			console.log("FAENZA",d)
+			console.log(d.src_outer_offset,scale_y(d.src_outer_offset))
+		}
+
+		y1=delta.dst.y-delta.src.y;//scale_y(d.dst_inner_offset)/2
 		
+		y0+=scale_y(d.src_outer_offset);// + scale_y(d.src_inner_offset)/2
+
+		y1+= scale_y(d.dst_outer_offset) + scale_y(d.dst_inner_offset)/2
+
+
+		//y1-= delta.src.y;
 		
+		/*
 		// flows are under the center
 		y1-=scale_y(d.dst_inner_offset)/2;
 		y1+=scale_y(d.total);
 		y1-=scale_y(d.size)/2;
 		y1-=scale_y(d.dst_inner_offset)/2;
-		
+		*/
 		//console.log(d)
 		var c1x=x0+(x1-x0)/2,
 			c1y=y0,
@@ -1213,10 +1108,17 @@ function BubbleFlowChart(data) {
 		//console.log(d)
 		//y1= (scale_y(d.dst_outer_offset)+scale_y(d.dst_inner_offset)/2+d.dst_index*step + delta.dst) - (scale_y(d.src_outer_offset)+scale_y(d.src_inner_offset)/2+d.src_index*step);
 
-		y1= (scale_y(d.dst_outer_offset)+scale_y(d.dst_inner_offset)/2 + delta.dst.y) - (scale_y(d.src_outer_offset)+scale_y(d.src_inner_offset)/2);
-
 		
-		y1-= delta.src_public.y;
+
+		y1=delta.dst.y-delta.src_public.y;//scale_y(d.dst_inner_offset)/2
+		
+		y0+= scale_y(d.src_outer_offset) + scale_y(d.src_inner_offset)/2
+
+		y1+= scale_y(d.dst_outer_offset) + scale_y(d.dst_inner_offset)/2
+
+		//alert((d.src_outer_offset) + (d.src_inner_offset))
+
+		//y1-= delta.src_public.y;
 		
 		/*
 		// flows are under the center
@@ -1256,386 +1158,114 @@ function BubbleFlowChart(data) {
 
 	}
 	
-	var __flows=flows.selectAll("g.flow")
-			.data(flows_size.concat(flows_public_size))
-			.enter()
-			.append("g")
-				.attr("class","flow")
-				.classed("private",function(d){
-					return d.t=="private";
+	function updateFlows() {
+		var __flows=flows.selectAll("g.flow")
+				.data(self.flows_size.concat(self.flows_public_size),function(d){
+					//console.log(d)
+					return d.from+"-"+d.to;
+				});
+
+
+		var new_flows=__flows.enter()
+				.append("g")
+					.attr("class","flow")
+					.classed("private",function(d){
+						return d.t=="private";
+					})
+					.classed("public",function(d){
+						return d.t=="public";
+					})
+					
+		__flows.exit().remove();
+
+		__flows.attr("transform",function(d){
+
+						var x=(d.t=="private")?box_w:(WIDTH-margins.right-margins.left-box_w);
+
+						var h=scale_y(d.size)/2,
+							y=scale_y(d.src_outer_offset)+scale_y(d.src_inner_offset)/2+d.src_index*step;
+
+						y=0;//scale_y(d.src_inner_offset);
+
+						y+=((d.t=="private")?delta.src.y:delta.src_public.y);
+						
+						return "translate("+x+","+y+")";
+					})
+					.classed("no-stroke",function(d,i){
+						//console.log("no-stroke",d.size,scale_y(d.size))
+						return scale_y(d.size)<4;
+					});
+
+		new_flows.append("path")
+					.attr("class",function(d){
+						return d.t+" fill";
+					})
+					.attr("rel",function(d){
+						return d.from+","+d.to+":"+d.size;
+					})
+
+		__flows.select("path.fill")
+				.attr("d",function(d){
+					var p="";
+					if(d.t=="private") {
+						p=getSmoothPath(d);
+					} else {
+						p=getSmoothPathPublic(d);
+					}
+					return p;
 				})
-				.classed("public",function(d){
-					return d.t=="public";
+				.style("fill",function(d){
+					//console.log("FILLING",d.t,d.size,scale_color[d.t](d.size))
+					return scale_color[d.t](d.size);
+					return d.t=="private"?scale_color(d.size):scale_color2(d.size)
+				})
+				
+		/*
+		new_flows.append("path")
+				.attr("class","border top");
+
+		__flows.select("path.top")
+				.attr("d",function(d){
+					var p="";
+					if(d.t=="private") {
+						p=getSmoothPath(d,"top");
+					} else {
+						p=getSmoothPathPublic(d,"top");
+					}
+					return p;
+
 				})
 				.classed("no-stroke",function(d,i){
-					//console.log("no-stroke",d.size,scale_y(d.size))
-					return scale_y(d.size)<4;
+					return scale_y(d.size)<2;
 				})
-				.attr("transform",function(d){
-
-					var x=(d.t=="private")?box_w:(WIDTH-margins.right-margins.left-box_w);
-
-					var h=scale_y(d.size)/2-1,
-						y=scale_y(d.src_outer_offset)+scale_y(d.src_inner_offset)/2+d.src_index*step;
-					y+=((d.t=="private")?delta.src.y:delta.src_public.y);
-
-					return "translate("+x+","+y+")";
+				.style("stroke",function(d){
+					if(scale_y(d.size)<2) {
+						//????????????
+						scale_color[d.t](d.flow);
+						//d.t=="private"?scale_color(d.size):scale_color2(d.size)	
+						//return "#333";//d.t=="private"?scale_color(d.size):scale_color2(d.size)	
+					}
 				})
-	/*
-	flows.selectAll("path")
-		.data(flows_size.concat(flows_public_size))
-		.enter()
-		.append("path")
-	*/
-	__flows.append("path")
-			.attr("d",function(d){
-				var p="";
-				if(d.t=="private") {
-					p=getSmoothPath(d);
-				} else {
-					p=getSmoothPathPublic(d);
-				}
-				return p;
-
-			})
-			.attr("class",function(d){
-				return d.t;
-			})
-			.attr("rel",function(d){
-				return d.from+","+d.to+":"+d.size;
-			})
-			.style("fill",function(d){
-				return scale_color[d.t](d.flow);
-				return d.t=="private"?scale_color(d.size):scale_color2(d.size)
-			})
-			
-	
-	__flows.append("path")
-			.attr("class","border top")
-			.attr("d",function(d){
-				var p="";
-				if(d.t=="private") {
-					p=getSmoothPath(d,"top");
-				} else {
-					p=getSmoothPathPublic(d,"top");
-				}
-				return p;
-
-			})
-			.classed("no-stroke",function(d,i){
-				return scale_y(d.size)<2;
-			})
-			.style("stroke",function(d){
-				if(scale_y(d.size)<2) {
-					//????????????
-					scale_color[d.t](d.flow);
-					//d.t=="private"?scale_color(d.size):scale_color2(d.size)	
-					//return "#333";//d.t=="private"?scale_color(d.size):scale_color2(d.size)	
-				}
-			})
-	
-	__flows.append("path")
-			.attr("class","border bottom")
-			.attr("d",function(d){
-				var p="";
-				if(d.t=="private") {
-					p=getSmoothPath(d,"bottom");
-				} else {
-					p=getSmoothPathPublic(d,"bottom");
-				}
-				return p;
-			})
-			.classed("no-stroke",function(d,i){
-				return scale_y(d.size)<2;
-			})
-	
-
-	//src_groups
-	//ux_layer.main.selectAll(".ux-src")
-	//ux_layer.src_groups
-	/*
-	ux_layer.src_group.selectAll("g.ux-src")
-			.on("click",function(d){
-				svg.classed("interacting",true).classed("clicked",!svg.classed("clicked"));
-			})
-			.on("mouseover",function(d){
-				if(svg.classed("clicked"))
-					return;
-				svg.classed("interacting",true)
-
-				flows
-					.selectAll("path")
-						.classed("highlight",function(f){
-							return f.from==d.key;
-						});
-
-				ux_layer.src_groups
-					.filter(function(src){
-						return src.key==d.key;
-					})
-					.classed("highlight",true)
-
-
-				//d3.select(this)
-				src_groups
-					.filter(function(src){
-						return src.key==d.key;
-					})
-					.classed("highlight",true)
-					.classed("text-visible",true)
-						
-
-				dst_groups
-					.filter(function(l){
-						return l.values.flows.filter(function(f){
-							return f.from==d.key;
-						}).length>0;
-					})
-					.classed("highlight",true)
-					.classed("text-visible",function(d){
-						return scale_y(d.values.total)+step*2>12;
-					});
-
-				//console.log("MOUSE OVER",d);
-
-				dst_sub_groups
-					.filter(function(sub_d){
-						return sub_d.from==d.key;
-					})
-					.classed("highlight",true)
-
-				src_sub_groups
-					.filter(function(sub_d){
-						return sub_d.from==d.key;
-					})
-					.classed("highlight",true)
-								
-			})
-			.on("mouseout",function(d){
-				if(svg.classed("clicked"))
-					return;
-
-				svg.classed("interacting",false)
-
-				flows
-					.selectAll("path.highlight")
-						.classed("highlight",false);
-				
-				
-				src_groups.classed("highlight",false).classed("text-visible",false)
-				ux_layer.src_groups.classed("highlight",false).classed("text-visible",false)
-				dst_groups.classed("highlight",false).classed("text-visible",false);
-				ux_layer.dst_groups.classed("highlight",false).classed("text-visible",false);
-
-				dst_sub_groups.classed("highlight",false)
-				src_sub_groups.classed("highlight",false)	
-			})
-	*/
-	
-	//src_public_groups
-	//ux_layer.main.selectAll(".ux-src_public")
-	/*
-	ux_layer.src_public_groups
-			.on("click",function(d){
-				svg.classed("interacting",true).classed("clicked",!svg.classed("clicked"));
-			})
-			.on("mouseover",function(d){
-				if(svg.classed("clicked"))
-					return;
-				svg.classed("interacting",true)
-
-				flows
-					.selectAll("path")
-						.classed("highlight",function(f){
-							return f.from==d.key;
-						});
-
-
-				//d3.select(this)
-				src_public_groups
-					.filter(function(src){
-						return src.key==d.key;
-					})
-					.classed("highlight",true)
-					.classed("text-visible",true)
-						
-				ux_layer.src_public_groups
-					.filter(function(src){
-						return src.key==d.key;
-					})
-					.classed("highlight",true)	
-
-				dst_groups
-					.filter(function(l){
-						return l.values.flows.filter(function(f){
-							return f.from==d.key;
-						}).length>0;
-					})
-					.classed("highlight",true)
-					.classed("text-visible",function(d){
-						return scale_y(d.values.total)+step*2>12;
-					});
-
-				dst_sub_groups
-					.filter(function(sub_d){
-						return sub_d.from==d.key;
-					})
-					.classed("highlight",true)
-
-				src_public_sub_groups
-					.filter(function(sub_d){
-						return sub_d.from==d.key;
-					})
-					.classed("highlight",true)
-
-								
-			})
-			.on("mouseout",function(d){
-				if(svg.classed("clicked"))
-					return;
-
-				svg.classed("interacting",false)
-
-				flows
-					.selectAll("path.highlight")
-						.classed("highlight",false);
-				
-				
-				src_public_groups.classed("highlight",false).classed("text-visible",false)
-				ux_layer.src_public_groups.classed("highlight",false).classed("text-visible",false)
-
-				dst_groups.classed("highlight",false).classed("text-visible",false);
-				ux_layer.dst_groups.classed("highlight",false).classed("text-visible",false);
-
-				dst_sub_groups.classed("highlight",false)
-				src_public_sub_groups.classed("highlight",false)
-			})
-	*/
-	
-	
-	//dst_groups
-	//ux_layer.main.selectAll(".ux-dst")
-	/*
-	ux_layer.dst_groups
-			.on("click",function(d){
-				svg.classed("interacting",true).classed("clicked",!svg.classed("clicked"));
-				expandNodes(d);
-			})
-			.on("mouseover",function(d){
-				if(svg.classed("clicked"))
-					return;
-
-				svg.classed("interacting",true)
-
-				flows
-					.selectAll("path")
-						.classed("highlight",function(f){
-							return f.to==d.key;
-						});
-
-				//d3.select(this)
-				ux_layer.dst_groups
-					.filter(function(src){
-						return src.key==d.key;
-					})
-					.classed("highlight",true).classed("text-visible",true)
-
-				dst_groups
-					.filter(function(src){
-						return src.key==d.key;
-					})
-					.classed("highlight",true).classed("text-visible",true)
-
-				src_groups
-					.filter(function(l){
-						return l.values.flows.filter(function(f){
-							return f.to==d.key;
-						}).length>0;
-					})
-					.classed("highlight",true)
-					.classed("text-visible",function(d){
-						return scale_y(d.values.total)+step*2>12;
-					})
-
-				src_public_groups
-					.filter(function(l){
-						return l.values.flows.filter(function(f){
-							return f.to==d.key;
-						}).length>0;
-					})
-					.classed("highlight",true)
-					.classed("text-visible",function(d){
-						return scale_y(d.values.total)+step*2>12;
-					})
-
-				ux_layer.src_groups
-					.filter(function(l){
-						return l.values.flows.filter(function(f){
-							return f.to==d.key;
-						}).length>0;
-					})
-					.classed("highlight",true)
-					.classed("text-visible",function(d){
-						return scale_y(d.values.total)+step*2>12;
-					})
-
-				ux_layer.src_public_groups
-					.filter(function(l){
-						return l.values.flows.filter(function(f){
-							return f.to==d.key;
-						}).length>0;
-					})
-					.classed("highlight",true)
-					.classed("text-visible",function(d){
-						return scale_y(d.values.total)+step*2>12;
-					})
-
-				dst_sub_groups
-					.filter(function(sub_d){
-						return sub_d.to==d.key;
-					})
-					.classed("highlight",true)
-
-				src_sub_groups
-					.filter(function(sub_d){
-						return sub_d.to==d.key;
-					})
-					.classed("highlight",true)
-
-				src_public_sub_groups
-					.filter(function(sub_d){
-						return sub_d.to==d.key;
-					})
-					.classed("highlight",true)
-				
-			})
-			.on("mouseout",function(d){
-				if(svg.classed("clicked"))
-					return;
-
-				svg.classed("interacting",false)
-
-				flows
-					.selectAll("path.highlight")
-						.classed("highlight",false)
-				
-				//d3.select(this)
-				dst_groups.classed("highlight",false).classed("text-visible",false)
-				ux_layer.dst_groups.classed("highlight",false).classed("text-visible",false)
-				
-				src_groups.classed("highlight",false).classed("text-visible",false)
-				src_public_groups.classed("highlight",false).classed("text-visible",false)
-
-				ux_layer.src_groups.classed("highlight",false).classed("text-visible",false)
-				ux_layer.src_public_groups.classed("highlight",false).classed("text-visible",false)
-
-				dst_sub_groups.classed("highlight",false)
-
-				src_public_sub_groups.classed("highlight",false)
-				src_sub_groups.classed("highlight",false)
-
-			})
-	*/
+		
+		new_flows.append("path")
+				.attr("class","border bottom")
+		
+		__flows.select("path.bottom")
+				.attr("d",function(d){
+					var p="";
+					if(d.t=="private") {
+						p=getSmoothPath(d,"bottom");
+					} else {
+						p=getSmoothPathPublic(d,"bottom");
+					}
+					return p;
+				})
+				.classed("no-stroke",function(d,i){
+					return scale_y(d.size)<2;
+				})
+		*/
+	}
+	updateFlows();
 	
 	function generateLinearGradient(svg,gradient_name,stop0,stop100) {
 		var gradient = svg.append("svg:defs")

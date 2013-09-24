@@ -76,6 +76,10 @@ function StackChart(data,options){
 							.text(function(d){
 								return d3.time.format("%Y")(d.x);
 							})
+							.classed("clickable",function(d){
+								var year= +d3.time.format("%Y")(d.x);
+								return [2009,2012,2013].indexOf(year)>-1;
+							})
 							.on("click",function(d){
 								options.callback(d3.time.format("%Y")(d.x));
 							})
