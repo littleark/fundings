@@ -7,11 +7,16 @@ function BubbleFlowChart(data) {
 				.append("g")
 					.attr("transform","translate("+margins.left+","+margins.top+")");
 
+	var original_height=HEIGHT;
+
 	HEIGHT=HEIGHT-margins.top-margins.bottom;
+
+
 
 	var self=this;
 
 	var step=0;
+	var space=0;
 
 	this.src_size=[];
 	this.dst_size=[];
@@ -77,7 +82,7 @@ function BubbleFlowChart(data) {
 		console.log("updating with new data",__data)
 
 		updateData(__data);
-		updateFlowsData();
+		
 
 		max=getImportantValues(__data)
 
@@ -98,6 +103,7 @@ function BubbleFlowChart(data) {
 		funding_groups.dst=updateCircleGroups(dst,dst_groups,dst_sub_groups,self.dst_size,"dst");
 		funding_groups.src_public=updateCircleGroups(src_public,src_public_groups,src_public_sub_groups,self.src_public_size,"src_public");
 
+		updateFlowsData();
 		updateFlows();
 
 		updateAllUXLayers(self.src_size,self.src_public_size,self.dst_size);
@@ -129,6 +135,8 @@ function BubbleFlowChart(data) {
 
 								}
 							}).sort(function(a,b){
+								if(!(a.flow-b.flow))
+									return a.from < b.from ? -1 : a.from > b.from ? 1 : 0;
 								return b.flow - a.flow;
 							})
 						}	
@@ -136,6 +144,8 @@ function BubbleFlowChart(data) {
 					.entries(data);
 
 				values.sort(function(a,b){
+					if(!(a.values.total-b.values.total))
+						return a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
 					return b.values.total - a.values.total;
 				});
 
@@ -144,7 +154,7 @@ function BubbleFlowChart(data) {
 					if(!prev.values.offset) {
 						prev.values.offset=0;
 					}
-					cur.values.offset=prev.values.offset+prev.values.total;
+					cur.values.offset=prev.values.offset+prev.values.total+cur.values.total;
 					return cur;
 				});
 
@@ -182,8 +192,9 @@ function BubbleFlowChart(data) {
 	updateData(data);
 
 
+	function updateFlow(data,dst_data,t) {
 
-	function updateFlow(data,t) {
+		console.log("SHITEEEE",data)
 
 		var flows=[];
 
@@ -192,6 +203,7 @@ function BubbleFlowChart(data) {
 			d.values.flows.forEach(function(src_d) {
 				var flow={
 					t:t,
+					y0:d.y0,
 					from:src_d.from,
 					rata:src_d.rata,
 					regione:src_d.regione,
@@ -207,9 +219,12 @@ function BubbleFlowChart(data) {
 					return t.key==flow.to;
 				})[0];
 
+				//console.log("LA VACA AD TO MADAR",tmp_dst)
+
 				flow.dst_index=tmp_dst.index;
 				//flow.dst_size=tmp_dst.values.total;
 				flow.dst_outer_offset=tmp_dst.values.offset || 0;
+				flow.y1=tmp_dst.y0 || 0;
 				
 				flow.total=tmp_dst.values.total;
 
@@ -226,7 +241,9 @@ function BubbleFlowChart(data) {
 		});
 
 		return flows.sort(function(a,b){
-			return b.size - a.size;
+			if(!(a.size-b.size))
+				return a.from < b.from ? -1 : a.from > b.from ? 1 : 0;
+			return (b.size - a.size);
 		});
 
 	}
@@ -234,8 +251,8 @@ function BubbleFlowChart(data) {
 	
 	
 	function updateFlowsData() {
-		self.flows_size=updateFlow(self.src_size,"private");
-		self.flows_public_size=updateFlow(self.src_public_size,"public");
+		self.flows_size=updateFlow(self.src_size,self.dst_size,"private");
+		self.flows_public_size=updateFlow(self.src_public_size,self.dst_size,"public");
 		
 		console.log("FLOWS",self.flows_size);
 		console.log("FLOWS PUBLIC",self.flows_public_size);
@@ -350,26 +367,42 @@ function BubbleFlowChart(data) {
 	//HEIGHT=HEIGHT*2;
 	
 	function getDelta() {
-		return {
+
+		
+
+		var delta= {
 			src:{
 				x:0,
 				y:(HEIGHT - d3.sum(self.src_size,function(d){
 								return scale_r(d.values["total"])*2;
-							}))/2
+							}))/2 - self.src_size.length*space/2
 			},
 			src_public:{
 					x:(WIDTH-margins.right-margins.left-box_w),
 					y:(HEIGHT-d3.sum(self.src_public_size,function(d){
 								return scale_r(d.values["total"])*2;
-							}))/2
+							}))/2 - self.src_public_size.length*space/2
 			},
 			dst:{
 				x:((WIDTH-margins.right-margins.left)/2-box_w/2),
 				y:(HEIGHT-d3.sum(self.dst_size,function(d){
 								return scale_r(d.values["total"])*2;
-							}))/2
+							}))/2 - self.dst_size.length*space/2
 			}
 		}
+
+		if(delta.src.y<0) {
+			var diff=Math.abs(delta.src.y);
+			HEIGHT = HEIGHT + diff*2 +margins.top+margins.bottom +25*2
+			d3.select("#svg svg").attr("height",HEIGHT);
+			delta.src.y=0+25;
+			//delta.src_public.y+=diff+25;
+			//delta.dst.y+=diff+25;
+		} else {
+			d3.select("#svg svg").attr("height",HEIGHT);
+		}
+
+		return delta;
 	}
 	
 
@@ -388,7 +421,7 @@ function BubbleFlowChart(data) {
 		if(scale_y(extent.flows[1])*2.6 < HEIGHT) {
 			scale_y.range([0,HEIGHT-self.dst_size.length*step])
 		} else {
-			scale_y.range([10,200])
+			scale_y.range([0,200])
 		}
 
 		//scale_y.range([0,Math.min(HEIGHT-self.dst_size.length*step,500)])
@@ -483,6 +516,13 @@ function BubbleFlowChart(data) {
 				.attr("id","flows_v")
 				.attr("transform","translate("+0+","+0+")")
 
+	updateFlowsData();
+	/*
+	flows.append("g")
+			.attr("id","privateFlows")
+	flows.append("g")
+			.attr("id","publicFlows")
+	*/
 	var ux_layer={
 			main:svg.append("g")
 					.attr("id","ux")
@@ -630,7 +670,7 @@ function BubbleFlowChart(data) {
 						return layer.width;
 						//return margins.left + (WIDTH-margins.right-margins.left-box_w)/4;
 					})
-					.style("fill-opacity",0.1)
+					.style("fill-opacity",0)
 		new_groups.append("text")
 						.attr("class","label")
 						.attr("dy","0.25em")
@@ -639,17 +679,20 @@ function BubbleFlowChart(data) {
 							return d.key;
 						});
 
-		groups.attr("transform",function(d){
+		groups
+				.transition()
+				.duration(1000)
+				.attr("transform",function(d){
 						var x=0,
 							new_y=(scale_r(d.values.total))+inc;
-							inc=inc+scale_r(d.values.total)*2;
+							inc=inc+scale_r(d.values.total)*2+space;
 							y=new_y-scale_r(d.values.total);
-						return "translate("+x+","+y+")";
-					})
-					.select("rect")
-						.attr("height",function(d){
-							return scale_r(d.values.total)*2;
-						});
+						return "translate("+x+","+(y-space/2)+")";
+				})
+				.select("rect")
+					.attr("height",function(d){
+						return scale_r(d.values.total)*2+space;
+					});
 
 		groups.select("text")
 					.classed("permanent",function(d){
@@ -663,7 +706,7 @@ function BubbleFlowChart(data) {
 						return -scale_r(d.values.total)
 					})
 					.attr("y",function(d,i){
-						return scale_r(d.values.total);
+						return scale_r(d.values.total)+space/2;
 					})
 
 		//ux_layer.src_group.selectAll("g.ux-src")
@@ -671,12 +714,17 @@ function BubbleFlowChart(data) {
 				.on("click",function(d){
 					
 					if(!svg.classed("clicked")) {
+							space=10;
 							svg.classed("interacting",true).classed("clicked",true);
 
 							update(data.filter(function(t){
 								return d.key==t.to;
 							}),250)
 					} else {
+						if(HEIGHT>original_height) {
+							HEIGHT=original_height;
+						}
+						space=0;
 						svg.classed("interacting",false).classed("clicked",false);
 						update(data);
 					}
@@ -888,7 +936,7 @@ function BubbleFlowChart(data) {
 								.attr("transform",function(d,i){
 									d.delta=i*step
 									var new_y=(scale_r(d.values.total))+inc;
-									inc=inc+scale_r(d.values.total)*2;
+									inc=inc+scale_r(d.values.total)*2+space;
 									return "translate(0,0)";
 									//return "translate(0,"+(new_y-scale_r(d.values.total))+")";
 								});
@@ -901,6 +949,11 @@ function BubbleFlowChart(data) {
 		new_groups.append("g")
 			//.attr("class","center")
 			.attr("transform",function(d){
+				/*
+				d.delta=i*step
+				var new_y=(scale_r(d.values.total))+inc;
+				inc=inc+scale_r(d.values.total)*2;
+				*/
 				return "translate(0,"+(scale_r(d.values.total))+")"
 			});
 
@@ -940,6 +993,8 @@ function BubbleFlowChart(data) {
 											t:sub_d.t
 										}
 									}).sort(function(a,b){
+										if(!(a.flow-b.flow))
+											return a.from < b.from ? -1 : a.from > b.from ? 1 : 0;
 										return b.flow - a.flow;
 									})
 								},function(d){
@@ -986,13 +1041,18 @@ function BubbleFlowChart(data) {
 			.transition()
 			.duration(1000)
 			.attr("transform",function(d,i){
-				d.delta=i*step
-				var new_y=(scale_r(d.values.total))+inc;
-				inc=inc+scale_r(d.values.total)*2;
-				return "translate(0,"+(new_y-scale_r(d.values.total))+")";
+				//d.delta=i*step
+				//return "translate(0,"+(scale_y(d.values.offset)-scale_r(d.values.total))+")";
+				//var new_y=(scale_r(d.values.total))+inc;
+				var y0=inc;
+				d.y0=y0;
+				inc=inc+scale_r(d.values.total)*2+space;
+				return "translate(0,"+(y0)+")";
+				//return "translate(0,"+(new_y-scale_r(d.values.total))+")";
 			})
 			.select("circle.center")
 				.attr("cy",function(d){
+					//return 0;
 					return (scale_r(d.values.total));
 				});
 
@@ -1035,7 +1095,7 @@ function BubbleFlowChart(data) {
 
 		return "M"+x0+","+y0+"L"+x1+","+y1+"L"+x1+","+(y1+h)+"L"+x0+","+(y0+h)+"Z";
 	}
-
+	
 	function getSmoothPath(d,border) {
 		var x0=box_w,//+2,
 			x1=(WIDTH-margins.right-margins.left)/2-box_w/2,//-2,
@@ -1043,21 +1103,30 @@ function BubbleFlowChart(data) {
 			y0=0,//scale_y(d.src_outer_offset)+scale_y(d.src_inner_offset)/2+d.src_index*step + delta.src,
 			y1=delta.dst.y; //scale_y(d.dst_outer_offset)+scale_y(d.dst_inner_offset)/2+d.dst_index*step + delta.dst;//+h/2;
 
-		if(h<1)
-			h=1;
-
-		if(d.from=="italia futura romagna - faenza") {
-			console.log("FAENZA",d)
-			console.log(d.src_outer_offset,scale_y(d.src_outer_offset))
-		}
+		//if(h<1)
+		//	h=1;
 
 		y1=delta.dst.y-delta.src.y;//scale_y(d.dst_inner_offset)/2
 		
-		y0+=scale_y(d.src_outer_offset);// + scale_y(d.src_inner_offset)/2
+		//y0+=scale_y(d.src_outer_offset);//+ scale_y(d.src_inner_offset)/2
+		//y0=d.inc;// + scale_y(d.src_inner_offset)/2;
 
-		y1+= scale_y(d.dst_outer_offset) + scale_y(d.dst_inner_offset)/2
+		y0=d.y0;// + scale_r(d.src_inner_offset);
 
+		y0=d.y0 + scale_r(d.src_inner_offset);
 
+		var dy=(d.total-d.dst_inner_offset);// - d.dst_outer_offset;
+
+		y1+=d.y1 + scale_r(d.total) - scale_r(dy)// + scale_r(d.dst_inner_offset);
+
+		//console.log(dy,scale_r(dy));
+
+		//y1+= scale_r(d.dst_outer_offset);// + scale_y(d.dst_inner_offset)/2
+
+		//y1=0;
+
+		//y0 = d.inc;
+		//y0 = scale_y(d.src_outer_offset);
 		//y1-= delta.src.y;
 		
 		/*
@@ -1112,9 +1181,12 @@ function BubbleFlowChart(data) {
 
 		y1=delta.dst.y-delta.src_public.y;//scale_y(d.dst_inner_offset)/2
 		
-		y0+= scale_y(d.src_outer_offset) + scale_y(d.src_inner_offset)/2
+		//y0+=scale_y(d.src_outer_offset);//+ scale_y(d.src_inner_offset)/2
+		//y0=d.inc;// + scale_y(d.src_inner_offset)/2;
 
-		y1+= scale_y(d.dst_outer_offset) + scale_y(d.dst_inner_offset)/2
+		y0=d.y0 + scale_r(d.src_inner_offset);
+
+		y1+=d.y1 + scale_r(d.dst_inner_offset);
 
 		//alert((d.src_outer_offset) + (d.src_inner_offset))
 
@@ -1159,11 +1231,20 @@ function BubbleFlowChart(data) {
 	}
 	
 	function updateFlows() {
+		/*
+		flows.select("#privateFlows")
+				.attr("transform","translate("+delta[src].x+","+delta[src].y+")");
+
+		flows.select("#publicFlows")
+				.attr("transform","translate("+delta[src].x+","+delta[src].y+")");
+		*/
+
 		var __flows=flows.selectAll("g.flow")
 				.data(self.flows_size.concat(self.flows_public_size),function(d){
 					//console.log(d)
 					return d.from+"-"+d.to;
 				});
+
 
 
 		var new_flows=__flows.enter()
@@ -1178,23 +1259,27 @@ function BubbleFlowChart(data) {
 					
 		__flows.exit().remove();
 
-		__flows.attr("transform",function(d){
+		__flows
+				.classed("no-stroke",function(d,i){
+					//console.log("no-stroke",d.size,scale_y(d.size))
+					return scale_y(d.size)<4;
+				})
+				.transition()
+				.duration(1000)
+				.attr("transform",function(d){
 
 						var x=(d.t=="private")?box_w:(WIDTH-margins.right-margins.left-box_w);
-
+						/*
 						var h=scale_y(d.size)/2,
 							y=scale_y(d.src_outer_offset)+scale_y(d.src_inner_offset)/2+d.src_index*step;
-
-						y=0;//scale_y(d.src_inner_offset);
+						*/
+						var y=0;//scale_y(d.src_inner_offset);
 
 						y+=((d.t=="private")?delta.src.y:delta.src_public.y);
 						
 						return "translate("+x+","+y+")";
 					})
-					.classed("no-stroke",function(d,i){
-						//console.log("no-stroke",d.size,scale_y(d.size))
-						return scale_y(d.size)<4;
-					});
+					
 
 		new_flows.append("path")
 					.attr("class",function(d){
@@ -1204,37 +1289,39 @@ function BubbleFlowChart(data) {
 						return d.from+","+d.to+":"+d.size;
 					})
 
+		var inc={
+			"private":0,
+			"public":0
+		};
+		/*
+		var y=inc;
+				inc=inc+scale_r(d.values.total)*2;
+				return "translate(0,"+(y)+")";
+		*/
 		__flows.select("path.fill")
-				.attr("d",function(d){
-					var p="";
-					if(d.t=="private") {
-						p=getSmoothPath(d);
-					} else {
-						p=getSmoothPathPublic(d);
-					}
-					return p;
-				})
 				.style("fill",function(d){
 					//console.log("FILLING",d.t,d.size,scale_color[d.t](d.size))
 					return scale_color[d.t](d.size);
-					return d.t=="private"?scale_color(d.size):scale_color2(d.size)
 				})
+				.transition()
+				.duration(1000)
+					.attr("d",function(d){
+						var p="";
+						d.inc=inc[d.t];
+						if(d.t=="private") {
+							p=getSmoothPath(d,null);
+						} else {
+							p=getSmoothPathPublic(d,null);
+						}
+						inc[d.t]=inc[d.t]+scale_r(d.size)*2+space;
+						return p;
+					})
 				
-		/*
+
 		new_flows.append("path")
 				.attr("class","border top");
 
 		__flows.select("path.top")
-				.attr("d",function(d){
-					var p="";
-					if(d.t=="private") {
-						p=getSmoothPath(d,"top");
-					} else {
-						p=getSmoothPathPublic(d,"top");
-					}
-					return p;
-
-				})
 				.classed("no-stroke",function(d,i){
 					return scale_y(d.size)<2;
 				})
@@ -1246,24 +1333,38 @@ function BubbleFlowChart(data) {
 						//return "#333";//d.t=="private"?scale_color(d.size):scale_color2(d.size)	
 					}
 				})
-		
+				.transition()
+				.duration(1000)
+				.attr("d",function(d){
+					var p="";
+					if(d.t=="private") {
+						p=getSmoothPath(d,"top");
+					} else {
+						p=getSmoothPathPublic(d,"top");
+					}
+					return p;
+
+				});
+
 		new_flows.append("path")
 				.attr("class","border bottom")
 		
 		__flows.select("path.bottom")
-				.attr("d",function(d){
-					var p="";
-					if(d.t=="private") {
-						p=getSmoothPath(d,"bottom");
-					} else {
-						p=getSmoothPathPublic(d,"bottom");
-					}
-					return p;
-				})
 				.classed("no-stroke",function(d,i){
 					return scale_y(d.size)<2;
 				})
-		*/
+				.transition()
+				.duration(1000)
+					.attr("d",function(d){
+						var p="";
+						if(d.t=="private") {
+							p=getSmoothPath(d,"bottom");
+						} else {
+							p=getSmoothPathPublic(d,"bottom");
+						}
+						return p;
+					})
+				
 	}
 	updateFlows();
 	
