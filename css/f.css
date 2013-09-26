@@ -1,11 +1,28 @@
 
 		body {
 			opacity: #fff;
+			font: 12px Georgia,sans-serif;
 		}
 
 		#wrapper {
 			width:960px;
 			margin:0 auto;
+		}
+		h1,h2 {
+			margin:0;
+			padding: 0;
+			text-align:center;
+			color:#333;
+		}
+		h1 {
+			font-size:26px;
+		}
+		h2 {
+			font-size:15px;
+			font-weight: normal;
+		}
+		#header {
+			margin-bottom:20px;
 		}
 		svg {
 			font: 10px sans-serif;
@@ -122,13 +139,14 @@
 			fill-opacity:1;
 			stroke-opacity:1;
 		}
-		
+		/*
 		g.interacting g circle.private.sub:not(.highlight) {
 			fill:#c0dbe7 !important;
 		}
 		g.interacting g circle.public.sub:not(.highlight) {
 			fill:#ffced0 !important;
 		}
+		*/
 		g.interacting g.highlight circle.sub.highlight {
 			fill-opacity:1;
 			stroke-opacity:1;
@@ -171,6 +189,10 @@
 			font-weight: 100;
 			color:#666;
 			text-anchor:middle;
+		}
+		
+		#ux > g {
+			cursor:pointer;
 		}
 
 		/************************* STACKCHART ***************************/

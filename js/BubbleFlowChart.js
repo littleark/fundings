@@ -719,23 +719,25 @@ function BubbleFlowChart(data) {
 				})
 				.on("mouseover",function(d){
 
-					if(svg.classed("clicked"))
+					if(svg.classed("clicked")) {
+						showPopup(d);
 						return;
+					}
 					svg.classed("interacting",true)
 
+					/*
 					from.main
 						.filter(function(src){
 							return src.key==d.key;
 						})
 						.classed("highlight",true)
-
+					*/
 					from.sub
 						.filter(function(sub_d){
-							//console.log(sub_d.to,"==",d.key)
 							return sub_d[direction]==d.key;
 						})
 						.classed("highlight",true)
-
+					
 					groups
 						.filter(function(src){
 							return src.key==d.key;
@@ -745,7 +747,7 @@ function BubbleFlowChart(data) {
 					to.forEach(function(t_group){
 
 						//console.log(t_group)
-
+						/*
 						t_group.main
 							.filter(function(l){
 								return l.values.flows.filter(function(f){
@@ -756,16 +758,16 @@ function BubbleFlowChart(data) {
 							.classed("text-visible",function(d){
 								return scale_y(d.values.total)+step*2>12;
 							});
-
+						*/
 						t_group.sub
 							.filter(function(sub_d){
 								//console.log(d.key,"==",sub_d.from)
 								return sub_d[direction]==d.key;
 							})
 							.classed("highlight",true)
-
+						
 					})
-
+					
 					if(over_callback)
 						over_callback(d);
 					/*
@@ -789,6 +791,9 @@ function BubbleFlowChart(data) {
 	}
 	updateAllUXLayers(self.src_size,self.src_public_size,self.dst_size);
 	
+	function showPopup(d){
+		console.log(d);
+	}
 
 	function updateYear(year){
 		var txt=svg.selectAll("text.year")
