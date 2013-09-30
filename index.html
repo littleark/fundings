@@ -14,8 +14,30 @@
 			<h1>Soldi ai Partiti. Chi ha intascato di pi&ugrave;?</h1>
 			<h2>Confronto tra finanziamenti privati e pubblici ai partiti italiani</h2>
 		</div>
+		<div id="intro">
+			<p>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Nulla, pariatur sed blanditiis a amet sunt deleniti similique optio quibusdam quis doloribus unde autem modi perferendis voluptate assumenda quod! Autem, ex. Lorem ipsum dolor sit amet, consectetur adipisicing elit. Obcaecati, dignissimos, quisquam sunt repudiandae sequi vitae dolore nisi enim accusantium maiores optio hic dolorum natus praesentium quas consequatur ullam non ab.</p>
+		</div>
 		<div id="stackchart"></div>
-		<div id="svg"></div>
+		<div id="svg">
+			<div id="tooltip">
+				<h3></h3>
+				<i id="mt"></i>
+				<h4></h4>
+				<div id="ttContents">
+					<i>di cui</i><br/>
+					<div class="tt-private">
+						<h5><b>0%</b><span>privati</span></h5>
+						<ol></ol>
+					</div>
+					<div class="tt-public">
+						<h5><b>0%</b><span>pubblici</span></h5>
+						<ol></ol>
+					</div>
+				</div>
+				<i class="click">Clicca per saperne di pi&ugrave;</i>
+				<a href="#" title="Consulta i dati originali" target="_blank">Consulta i dati originali</a>
+			</div>
+		</div>
 	</div>
 	<script src="js/BubbleFlowChart.js?3"></script>
 	<script src="js/StackChart.js?2"></script>
@@ -78,7 +100,7 @@
 
 			var fundings = d3.layout.stack().offset("zero")(["private", "public"].map(function(type) {
 				return data.map(function(d) {
-					return {x: (d.date), y: +d[type]};
+					return {x: (d.date), y: +d[type], t:type};
 				});
 			}));
 
@@ -87,9 +109,9 @@
 			new StackChart(fundings,{
 				container:"#stackchart",
 				width:960,
-				height:80,
+				height:150,
 				margins:{
-					top:0,
+					top:30,
 					right:80,
 					bottom:20,
 					left:80

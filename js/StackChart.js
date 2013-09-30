@@ -9,6 +9,8 @@ function StackChart(data,options){
 					.append("g")
 						.attr("transform","translate("+margins.left+","+(options.height-margins.bottom)+")")
 
+	var yaxis=svg.append("g");
+
 	var	x = d3.scale.ordinal().rangeRoundBands([0, options.width - margins.left - margins.right]),
 		y = d3.scale.linear().range([0, options.height - margins.top - margins.bottom]),
 		z = d3.scale.ordinal().range(["#23a4db", "#d8232a"]);
@@ -48,63 +50,141 @@ function StackChart(data,options){
 
 	drawAreas();
 
-	var vrules=svg.selectAll("g.vrule")
+	var vrules=svg.append("g")
+				.selectAll("g.vrule")
 					.data(data[1].map(function(d) { return d; }))
     				.enter()
     				.append("svg:g")
     				.attr("class","vrule")
     					.attr("transform",function(d){
     						return "translate("+x(d.x)+",0)";
-    					});
+    					})
+    					
 
 	// Add a label per date.
 	/*var label = svg.selectAll("text")
 					//.data(x.domain())
 					.data(data[0].map(function(d) { return d.x; }))
 	    				.enter()*/
+	var w=x(data[0][1].x)-x(data[0][0].x);
+
+	
+
+
 	vrules
-	    				.append("svg:text")
-							/*
-							.attr("x", function(d) { 
-								return x(d);// + x.rangeBand() / 2; 
-							})
-							*/
-							.attr("x",0)
-							.attr("y", 6)
-							.attr("text-anchor", "middle")
-							.attr("dy", ".71em")
-							.text(function(d){
-								return d3.time.format("%Y")(d.x);
-							})
-							.classed("clickable",function(d){
-								var year= +d3.time.format("%Y")(d.x);
-								return [2009,2012,2013].indexOf(year)>-1;
-							})
-							.on("click",function(d){
-								options.callback(d3.time.format("%Y")(d.x));
-							})
+		.append("svg:text")
+			.attr("x",0)
+			.attr("y", 6)
+			.attr("text-anchor", "middle")
+			.attr("dy", ".71em")
+			.text(function(d){
+				return d3.time.format("%Y")(d.x);
+			})
+			.classed("clickable",function(d){
+				var year= +d3.time.format("%Y")(d.x);
+				return [2009,2012,2013].indexOf(year)>-1;
+			})
+
+	console.log("XXXXXXXXXXXXXXXXXXXXXXXX",data[0].concat(data[1]))
+
+	var labels=svg.append("g")
+		.selectAll("g.vlabel")
+		.data(data[0].concat(data[1]))
+		.enter()
+		.append("g")
+			.attr("class","vlabel")
+			.attr("transform",function(d){
+				var _x=x(d.x),
+					_y=-y(d.y0 + d.y);
+				return "translate("+_x+","+_y+")";
+			})
+			.on("click",function(d){
+				options.callback(d3.time.format("%Y")(d.x));
+			})
+			.on("mouseover",function(d){
+				vrules
+					.classed("hover",false)
+					.filter(function(l){
+						return l.x==d.x;
+					})
+					.classed("hover",true)
+
+				labels
+					.classed("hover",false)
+					.filter(function(l){
+						return l.x==d.x;
+					})
+					.classed("hover",true)
+			})
+			.on("mouseout",function(d){
+				vrules
+					.classed("hover",false);
+				labels
+					.classed("hover",false);
+			})
+	
+	labels.append("svg:rect")
+			.attr("x",-60)
+			.attr("y",function(d){
+				return (d.t=="public")?-25:0;
+			})
+			.attr("width",50)
+			.attr("height",20)
+			//.attr("rx",5)
+			//.attr("ry",5)
+
+	labels.append("svg:text")
+			.attr("class","vlabel")
+			.attr("x",-35)
+			.attr("y",function(d){
+				return (d.t=="public")?-20:5;
+			})
+			.attr("text-anchor", "middle")			
+			.attr("dy", ".71em")
+			.text(function(d){
+				return d3.format(",.0f")(d.y/1000000)+"M";
+			})
+
+	labels.append("svg:circle")
+			.attr("cx",0)
+			.attr("cy",0)
+			.attr("r", "4");
+
+	labels
+		.filter(function(d){
+			return d.t=="public";
+		})
+		.append("svg:rect")
+		.attr("class","ux")
+		.attr("x",-w/2)
+		.attr("y",function(d){
+			return y(d.y0 + d.y)-options.height;
+		})
+		.attr("width",w)
+		.attr("height",options.height+margins.bottom)
+		.style("opacity",0)
+
 	vrules
 		.append("line")
 			.attr("y2",function(d){
 				//console.log(d);
 				return -y(d.y+d.y0);
 			})
-			.style("stroke","#fff")
-			.style("stroke-opacity",0.2)
-	//svg.selectAll("")
-	//		.data(data[0].map(function(d) { return d.x; }))
 
 	// Add y-axis rules.
-	var rule = svg.selectAll("g.rule")
+	var rule = yaxis.selectAll("g.rule")
 	      .data(y.ticks(3))
 	    .enter().append("svg:g")
 	      .attr("class", "rule")
 	      .attr("transform", function(d) { return "translate(0," + -y(d) + ")"; });
 
+
 	rule.append("svg:line")
 	      .attr("x2", options.width - margins.left - margins.right)
-	      .style("stroke", function(d) { return d ? "#333" : "#000"; })
+	      .style("stroke", function(d) { return "#333"; })
 	      .style("stroke-opacity", function(d) { return d ? .1 : null; });
+
+
 
 	rule.append("svg:text")
 	      .attr("x", 0)
