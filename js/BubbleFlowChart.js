@@ -76,7 +76,7 @@ function BubbleFlowChart(data) {
 				return d.flow>0;
 			});
 
-			updateYear(year);
+			
 			if (self.filter) {
 				console.log("updating with filter",self.filter)
 
@@ -88,6 +88,7 @@ function BubbleFlowChart(data) {
 
 			} else {
 				update(data);
+				updateYear(year);
 			}
 			
 
@@ -648,10 +649,12 @@ function BubbleFlowChart(data) {
 		);
 
 		[ux_layer.src].forEach(function(d){
-			d.node.transition().duration(1000).delay(1000).style("opacity",1).each("end",function(){
-				animating=false;
-			});
+			d.node.transition().duration(1000).delay(1000).style("opacity",1);
 		});
+
+		setTimeout(function(){
+			animating=false;
+		},750);
 
 	}	
 
@@ -744,7 +747,9 @@ function BubbleFlowChart(data) {
 
 		groups
 				.on("click",function(d){
-					
+					if(animating) {
+						return;
+					}
 					if(!svg.classed("clicked")) {
 							space=10;
 							svg.classed("interacting",true).classed("clicked",true);
@@ -914,6 +919,10 @@ function BubbleFlowChart(data) {
 					*/		
 				})
 				.on("mouseout",function(d){
+
+					if(animating)
+						return;
+
 					if(svg.classed("clicked"))
 						return;
 
@@ -1042,17 +1051,40 @@ function BubbleFlowChart(data) {
 	}
 
 	function updateYear(year){
-		var txt=svg.selectAll("text.year")
+		var txt=d3.select("h2.year")
 				.data([year])
 
-		txt
-			.enter()
-				.append("text")
-				.classed("year",true)
-				.attr("transform","translate("+(-margins.left+WIDTH/2)+",0)")
-				.attr("dy","-0.5em")
+		txt.text(year);
 
-		txt.text(year)
+		d3.select("#tot_private h3")
+			.html(moneyFormat(max.src))
+
+		d3.select("#tot_public h3")
+			.html(moneyFormat(max.src_public))
+
+		d3.select("#tot h3")
+			.html(moneyFormat(max.dst))
+
+		d3.select("#totals ol li").remove();
+
+		var li=d3.select("#tot_private ol")
+					.selectAll("li")
+						.data(self.flows_size.slice(0,5));
+
+		li.enter().append("li");
+		li.html(function(d){
+				return moneyFormat(d.size,true)+" da "+d.from+" a "+d.to;
+			});
+
+		var li=d3.select("#tot_public ol")
+					.selectAll("li")
+						.data(self.flows_public_size.slice(0,5));
+
+		li.enter().append("li");
+		li.html(function(d){
+				return moneyFormat(d.size,true)+" da "+d.from+" a "+d.to;
+			})
+
 	}
 
 	updateYear(2013)
@@ -1061,76 +1093,6 @@ function BubbleFlowChart(data) {
 						.attr("transform","translate("+(-margins.left)+",0)")
 	var right_arrow=svg.append("g")
 						.attr("transform","translate("+(canvas.width+margins.right)+",0)")
-
-	var arrow_margin=130;
-	left_arrow.append("text")
-			.attr("class","title")
-			.attr("x",0)
-			.attr("y",0)
-			.style("text-anchor","start")
-			.attr("dy","-0.5em")
-			.text("FINANZIAMENTI PRIVATI")
-			.style({
-				"font-size":"10px",
-				"font-weight":100
-			})
-	left_arrow.append("line")
-			.attr("x1",0)
-			.attr("y1",0)
-			.attr("x2",canvas.width/2)
-			.attr("y2",0)
-			.style({
-				"stroke":"#bbb",
-				"shape-rendering":"crispEdges"
-			})
-	left_arrow.append("path")
-			.attr("d",function(){
-				var x=canvas.width/2,
-					y=0;
-				var b=5;
-
-				return "M"+(x-b)+","+(y-b)+"l"+(b*2)+","+b+"l-"+(b*2)+","+b+"z";
-			})
-			.style({
-				"stroke":"none",
-				"fill":"#bbb",
-				"fill-opacity":1
-			})
-
-	right_arrow.append("text")
-			.attr("class","title")
-			.attr("x",0)
-			.attr("y",0)
-			.style("text-anchor","end")
-			.attr("dy","-0.5em")
-			.text("RIMBORSI PUBBLICI")
-			.style({
-				"font-size":"10px",
-				"font-weight":100
-			})
-
-	right_arrow.append("line")
-			.attr("x1",0)
-			.attr("y1",0)
-			.attr("x2",-canvas.width/2)
-			.attr("y2",0)
-			.style({
-				"stroke":"#bbb",
-				"shape-rendering":"crispEdges"
-			})
-
-	right_arrow.append("path")
-			.attr("d",function(){
-				var x=-canvas.width/2,
-					y=0;
-				var b=5;
-				return "M"+(x+b)+","+(y-b)+"l"+(-b*2)+","+b+"l"+(b*2)+","+b+"z";
-			})
-			.style({
-				"stroke":"none",
-				"fill":"#bbb",
-				"fill-opacity":1
-			})
 
 	var labels_src=svg.append("g")
 				.attr("id","labels_src")
@@ -1440,7 +1402,6 @@ function BubbleFlowChart(data) {
 					.attr("class",function(d){
 						return d.t+" fill";
 					})
-					.classed("highlight",clicked)
 					.attr("rel",function(d){
 						return d.from+","+d.to+":"+d.size;
 					})
@@ -1460,6 +1421,7 @@ function BubbleFlowChart(data) {
 					
 					return "translate("+x+","+y+")";
 				})
+				.classed("highlight",clicked)
 
 		__flows
 				.select("path.fill")

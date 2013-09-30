@@ -1,7 +1,33 @@
+/**
+ * For modern browsers
+ * 1. The space content is one way to avoid an Opera bug when the
+ *    contenteditable attribute is included anywhere else in the document.
+ *    Otherwise it causes space to appear at the top and bottom of elements
+ *    that are clearfixed.
+ * 2. The use of `table` rather than `block` is only necessary if using
+ *    `:before` to contain the top-margins of child elements.
+ */
+.cf:before,
+.cf:after {
+    content: " "; /* 1 */
+    display: table; /* 2 */
+}
 
+.cf:after {
+    clear: both;
+}
+
+/**
+ * For IE 6/7 only
+ * Include this rule to trigger hasLayout and contain floats.
+ */
+.cf {
+    *zoom: 1;
+}
+		
 		body {
 			opacity: #fff;
-			font: 12px Georgia,sans-serif;
+			font: 12px sans-serif;
 		}
 
 		#wrapper {
@@ -433,3 +459,61 @@
 			fill:#000;
 			display: block;
 		}
+
+/***************** TOTALS ******************/
+#totals {
+	margin-top:30px;
+}
+#totals > div {
+	float: left;
+	width:33%;
+}
+#totals div#tot_private {
+	text-align: left;
+}
+#totals div#tot {
+	text-align: center;
+}
+#totals div#tot_public {
+	text-align: right;
+}
+#totals h3 {
+	margin: 5px 0 0;
+	padding: 0;
+	font-size: 20px;
+}
+#totals #tot_private h3 {
+	color:#23a4db;
+}
+#totals #tot_public h3 {
+	color:#d8232a;
+}
+#totals {
+	
+}
+#totals h2.year {
+	font-size: 18px;
+	height: 18px
+}
+#totals span.arrow {
+	color:#333;
+	font-family: sans-serif;
+	font-size: 10px;
+	text-transform: uppercase;
+	width:100%;
+	height:18px; 
+	display: block;
+}
+#totals div#tot_private span.arrow {
+	background: transparent url(../img/arrow_left.png) left bottom no-repeat;
+}
+#totals div#tot_public span.arrow {
+	background: transparent url(../img/arrow_right.png) right bottom no-repeat;
+}
+
+#totals ol {
+	margin: 0;
+	padding: 0;
+	list-style-position: inside;
+	text-transform: capitalize;
+}
