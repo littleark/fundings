@@ -4,38 +4,49 @@
 	<meta charset="UTF-8">
 	<title>Soldi ai partiti</title>
 	<link rel="stylesheet" href="css/normalize.css">
+	<link rel="stylesheet" href="css/ff.css">
 	<link rel="stylesheet" href="css/f.css">
-	<script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
-	<script>window.jQuery || document.write('<script src="js/jquery-1.8.3.min.js"><\/script>')</script>
 	<script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
 </head>
 <body>
 	<div id="wrapper">
 		<div id="header">
-			<h1>Soldi ai Partiti. Chi ha intascato di pi&ugrave;?</h1>
-			<h2>Confronto tra finanziamenti privati e pubblici ai partiti italiani</h2>
+			<h1>Soldi ai Partiti</h1>
+			<h2>Tutti i finanziatori privati e i rimborsi elettorali dei partiti politici italiani dal 1992 a oggi</h2>
 		</div>
 		<div id="intro">
-			<p>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Nulla, pariatur sed blanditiis a amet sunt deleniti similique optio quibusdam quis doloribus unde autem modi perferendis voluptate assumenda quod! Autem, ex. Lorem ipsum dolor sit amet, consectetur adipisicing elit. Obcaecati, dignissimos, quisquam sunt repudiandae sequi vitae dolore nisi enim accusantium maiores optio hic dolorum natus praesentium quas consequatur ullam non ab.</p>
+			<p>Negli ultimi 20 anni i partiti politici italiani hanno incassato l’equivalente di oltre cinque miliardi di euro. Sono tutti soldi che vengono dalle tasche dei cittadini. La fetta maggiore è il finanziamento pubblico erogato sotto forma di rimborsi elettorali, ma almeno 1,9 miliardi di euro arrivano da quasi 29mila donazioni di cittadini, aziende, fondazioni e altre organizzazioni. Per la prima volta, Wired ha organizzato questo fiume di denaro pubblico e privato raccogliendo tutti i dati in un archivio opendata liberamente consultabile e scaricabile. Ecco chi sono i grandi e piccoli finanziatori privati della politica italiana, chi hanno sostenuto e quando.
+			</p>
 		</div>
-		<div id="stackchart"></div>
+		<div id="stackchart">
+			<h2>I soldi incassati dai partiti italiani dal 1992 a oggi<span></span></h2>
+		</div>
 		<div id="totals" class="cf">
 			<div id="tot_private">
-				<span class="arrow">Finanziamenti Privati</span>
-				<h3>20 Milioni</h3>
-				<ol></ol>
+				<span class="arrow"><span class="legend"></span>Donazioni Private</span>
+				<h3><a href="#"><span></span> <i class="icon-down-dir"></i><i class="icon-up-dir"></i></a></h3>
+				<div class="top5">
+					<h4>Le dieci maggiori donazioni:</h4>
+					<ol></ol>
+				</div>
+				<a class="linkToData" href="http://soldiaipartiti.wired.it/" target="_blank">Consulta i dati sulle donazioni private su Wired.it</a>
 			</div>
 			<div id="tot">
-				<h2 class="year">2013</h2>
-				<h3>40 Milioni</h3>
+				<h2 class="year" title="Clicca sugli anni nel grafico per selezionare quello che vuoi analizzare">2013</h2>
+				<h3><a href="#"><span></span><i class="icon-down-dir"></i><i class="icon-up-dir"></i></a></h3>
 			</div>
 			<div id="tot_public">
-				<span class="arrow">Rimborsi Pubblici</span>
-				<h3>20 Milioni</h3>
-				<ol></ol>
+				<span class="arrow">Rimborsi Elettorali<span class="legend"></span></span>
+				<h3><a href="#"><i class="icon-down-dir"></i><i class="icon-up-dir"></i> <span></span></a></h3>
+				<div class="top5">
+					<h4>I dieci maggiori rimborsi:</h4>
+					<ol></ol>
+				</div>
+				<a class="linkToData" href="http://soldiaipartiti.wired.it/finanziamenti-pubblici" target="_blank">Consulta i dati sui rimborsi elettorali</a>
 			</div>
 		</div>
 		<div id="svg">
+			<div id="loading">loading...</div>
 			<div id="tooltip">
 				<h3></h3>
 				<i id="mt"></i>
@@ -52,96 +63,43 @@
 					</div>
 				</div>
 				<i class="click">Clicca per saperne di pi&ugrave;</i>
-				<a href="#" title="Consulta i dati originali" target="_blank">Consulta i dati originali</a>
+				<a href="http://soldiaipartiti.wired.it/" title="Consulta i dati originali" target="_blank">Consulta i dati originali</a>
+				<a href="#" id="close" title="Chiudi"><i class="icon-cancel"></i></a>
 			</div>
+			<div id="subtooltip">
+				<h3></h3>
+				<i id="smt"></i>
+				<h4></h4>
+			</div>
+		</div>
+
+		<div id="sources" class="cf">
+			<div id="people">
+				<p>
+				I valori originali, in Lire ed Euro sono stati convertiti e rivalutati a valori correnti utilizzando gli <a href="http://rivaluta.istat.it/" target="_blank">indici Istat</a>.
+				<br/><br/>
+				Fonti: Tesoreria della Camera dei Deputati, Gazzetta Ufficiale, Istat
+				<br/><br/>
+				Elaborazione dati a cura di Gianluca De Martino, Denis Rizzoli, Guido Romeo.
+				<br/>
+				Si ringraziano per la collaborazione i tema di <a href="http://www.openpolis.it" target="_blank">OpenPolis</a> e <a href="http://www.zamzar.com" target="_blank">Zamzar</a>.
+				</p>
+			</div>
+			<div id="explore">
+				<p>
+				Per esplorare tutti i dati:<br/>
+				<a href="http://soldiaipartiti.wired.it/" target="_blank">Consulta i dati sulle donazioni private</a>
+				<br/>
+				<a href="http://soldiaipartiti.wired.it/finanziamenti-pubblici" target="_blank">Consulta i dati sui rimborsi elettorali</a>
+				</p>
+			</div>
+		</div>
+		<div id="footer">
+			Visualizzazione a cura di <a href="http://www.twitter.com/littleark" target="_blank">Carlo Zapponi</a>
 		</div>
 	</div>
 	<script src="js/BubbleFlowChart.js?3"></script>
 	<script src="js/StackChart.js?2"></script>
-	<script>
-
-		var margins={left:180,top:50,right:180,bottom:20,padding:{left:0,right:0}},
-			box_w=0,
-			step=0;
-
-		var WIDTH=960,
-			HEIGHT=800;
-
-		var flows;
-
-		
-		d3.csv("data/pubblico_privato_2013.csv",function(d){
-			return {
-				to:d.Target.toLowerCase(),
-				from:d.Source.toLowerCase(),//+(d.Rata||"")+(d.Regione||""),
-				rata:d.Rata,
-				regione:d.Regione,
-				t:d.Pubblico?"public":"private",
-				//flow:Math.min(+d.Weight,5000000),
-				flow:+d.Weight
-			}
-		},function(error,rows){
-			//console.log(rows);
-
-			var rows_name={};
-
-			rows.forEach(function(d){
-				if(!rows_name[d.from+d.to]) {
-					rows_name[d.from+d.to]=d;
-				} else {
-					rows_name[d.from+d.to].flow+=d.flow;
-				}
-			})
-
-			var aggregated_rows=[];
-			for(var from in rows_name) {
-				aggregated_rows.push(rows_name[from]);
-			}
-
-			//console.log("ROWS_NAME",rows_name)
-
-			flows=new BubbleFlowChart(aggregated_rows.filter(function(d){
-				return d.flow>0;// && d.to=="scelta civica";;
-			}));
-		});
-		
-		d3.csv("data/totali.csv",function(d){
-			return {
-				"year":+d.year,
-				"date":new Date((+d.year)+"-01-01"),
-				"private":+d.privato,
-				"public":+d.pubblico,
-				"total": +d.privato+(+d.pubblico)
-			}
-		},function(data){
-
-			var fundings = d3.layout.stack().offset("zero")(["private", "public"].map(function(type) {
-				return data.map(function(d) {
-					return {x: (d.date), y: +d[type], t:type};
-				});
-			}));
-
-			console.log(fundings)
-
-			new StackChart(fundings,{
-				container:"#stackchart",
-				width:960,
-				height:150,
-				margins:{
-					top:30,
-					right:80,
-					bottom:20,
-					left:80
-				},
-				callback:function(d){
-					flows.loadCSV(d)
-				}
-			})
-
-		})
-		
-		
-		
-	</script>
+	<script src="js/main.js?2"></script>
 </body>
 </html>

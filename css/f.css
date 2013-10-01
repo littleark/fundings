@@ -26,8 +26,16 @@
 }
 		
 		body {
-			opacity: #fff;
-			font: 12px sans-serif;
+			font: 14px arial, sans-serif;
+			color:#333;
+		}
+		
+		a {
+			color:#26a2d0;
+			text-decoration: underline;
+		}
+		a:hover {
+			color:#e41b23;
 		}
 
 		#wrapper {
@@ -42,13 +50,17 @@
 		}
 		h1 {
 			font-size:26px;
+			font-family: Georgia, 'Times new Roman', serif;
 		}
 		h2 {
-			font-size:15px;
-			font-weight: normal;
+			font-size: 13px;
+			font-weight: bold;
 		}
 		#header {
 			margin-bottom:20px;
+		}
+		#intro {
+			margin-bottom:30px;
 		}
 		svg {
 			font: 10px sans-serif;
@@ -233,11 +245,66 @@
 			text-anchor:middle;
 		}
 		
+		svg #legend path {
+			stroke:#fff;
+			fill:none;
+			stroke-width:2;
+		}
+		svg #legend text {
+			fill:#999;
+		}
 		#ux > g {
 			cursor:pointer;
 		}
 		#svg {
 			position: relative;
+			border-bottom:1px solid #ddd;
+			min-height: 800px;
+		}
+		#loading {
+			display: none;
+			width:120px;
+			height: 50px;
+			line-height: 50px;
+			text-align: center;
+			background: #fff;
+			background-color:rgba(255,255,255,0.9);
+			position: absolute;
+			left:420px;
+			top:10px;
+			border:1px solid #ddd;
+		}
+		#subtooltip {
+			position: absolute;
+			top:0;
+			left:0;
+			width:120px;
+			border:1px solid #999;
+			background: #fff;
+			background-color:rgba(255,255,255,0.9);
+			text-align: center;
+			padding: 5px;
+			display: none;
+		}
+		#subtooltip h3,
+		#subtooltip h4,
+		#subtooltip h5 {
+			margin:0;
+			padding: 0;
+			text-align: center;
+		}
+		#subtooltip h3 {
+			font-size: 11px;
+			text-transform: uppercase;
+			color:#666;
+		}
+		#subtooltip h4 {
+			font-size: 16px;
+			color:#000;
+		}
+		#subtooltip i {
+			font-size: 10px;
+			color:#999;
 		}
 		#tooltip {
 			display: none;
@@ -255,12 +322,13 @@
 			text-align: center;
 			padding:5px;
 			
+			/*
 			-webkit-transition: top 0.1s ease-out;
 			-moz-transition: top 0.1s ease-out;
 	        -ms-transition: top 0.1s ease-out;
 	        -o-transition: top 0.1s ease-out;
 			transition: top 0.1s ease-out;
-			
+			*/
 		}
 		#tooltip h3,
 		#tooltip h4,
@@ -289,7 +357,7 @@
 			position: absolute;
 			width: 100%;
 			bottom: 2px;
-			left:0;
+			left: 0;
 		}
 		#tooltip a {
 			display: none;
@@ -309,6 +377,8 @@
 
 		#tooltip.expanded a {
 			display: block;
+			font-size: 10px;
+			text-transform: uppercase;
 		}
 
 		#tooltip.expanded #ttContents {
@@ -397,9 +467,43 @@
 			display: block;
 			float: right;
 		}
-
+		#tooltip a#close {
+			display: none;
+			height: 15px;
+			width: 15px;
+			text-align: center;
+			position: absolute;
+			top: 5px;
+			right: 5px;
+			left:auto;
+			color: #999;
+			font-size: 14px;
+			line-height: 15px;
+			text-decoration: none;
+		}
+		#tooltip.expanded a#close {
+			display: block;
+		}
+		#tooltip a#close:hover {
+			color:#000;
+		}
+		#tooltip a#close i {
+			font-size: inherit;
+			color:inherit;
+		}
 		/************************* STACKCHART ***************************/
+		#stackchart {
+			min-height: 150px;
+		}
 
+		#stackchart h2 {
+			font-weight: bold;
+			font-size:14px;
+		}
+		#stackchart h2 span {
+			display: block;
+			font-size: 11px;
+		}
 		
 		#stackchart svg rect,
 		#stackchart svg line {
@@ -412,16 +516,13 @@
 		#stackchart svg text {
 			fill:#999;
 		}
-		#stackchart svg text.clickable {
-			fill:#000;
-			font-weight: bold;
-		}
+		
 		#stackchart svg g.vrule {
 			
 		}
 		#stackchart svg g.vrule.hover text.clickable {
 			font-weight: bold !important;
-			fill: #d8232a;
+			fill: #000;
 			font-size:12px;
 		}
 		#stackchart svg g.vrule line {
@@ -442,10 +543,12 @@
 			display: none;
 			fill:#333;
 			font-size:12px;
+			font-weight: bold;
 		}
 		#stackchart svg g.vlabel rect {
 			display: none;
 			fill:#fff;
+			fill-opacity:0.9;
 			stroke:#999;
 			stroke-width:1;
 		}
@@ -466,7 +569,22 @@
 }
 #totals > div {
 	float: left;
-	width:33%;
+	width:375px;
+}
+#totals > div#tot {
+	width:190px;
+}
+#totals .legend {
+	display: inline-block;
+	width:7px;
+	height: 7px;
+	background: #d8232a;
+	-webkit-border-radius: 3px;
+    border-radius: 3px;
+    margin:0 3px;
+}
+#totals div#tot_private .legend {
+	background:#23a4db;
 }
 #totals div#tot_private {
 	text-align: left;
@@ -482,11 +600,28 @@
 	padding: 0;
 	font-size: 20px;
 }
-#totals #tot_private h3 {
+#totals #tot_private h3 a {
 	color:#23a4db;
 }
-#totals #tot_public h3 {
+#totals #tot_public h3 a {
 	color:#d8232a;
+}
+#totals  h3 a {
+	color:#333;
+	text-decoration: none;
+	padding:5px;
+	-webkit-border-radius: 3px;
+    border-radius: 3px;
+}
+#totals  h3 a i {
+	color:#ddd;
+}
+#totals  h3 a:hover {
+	color:#333;
+	background: #eee;
+}
+#totals  h3 a:hover i {
+	color:#333;
 }
 #totals {
 	
@@ -494,6 +629,9 @@
 #totals h2.year {
 	font-size: 18px;
 	height: 18px
+}
+#totals h4 {
+	margin:10px 0 5px;
 }
 #totals span.arrow {
 	color:#333;
@@ -510,10 +648,110 @@
 #totals div#tot_public span.arrow {
 	background: transparent url(../img/arrow_right.png) right bottom no-repeat;
 }
-
+#totals .top5 {
+	display: none;
+}
+#totals.visible .top5 {
+	display: block;
+}
 #totals ol {
 	margin: 0;
 	padding: 0;
-	list-style-position: inside;
+	list-style:none;
 	text-transform: capitalize;
+	font-size: 12px;
+}
+#totals ol li {
+	height: 22px;
+	display: inline-block;
+	line-height: 20px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	overflow: hidden;
+	width: 100%;
+}
+#totals ol li .num {
+	padding:4px;
+	-webkit-border-radius: 12px;
+    border-radius: 12px;
+    background: #eee;
+    display: inline-block;
+	width: 12px;
+	height: 12px;
+	text-align:center;
+	line-height: 12px;
+	font-size: 10px;
+}
+#totals #tot_private ol li .num {
+	margin-right:5px;
+}
+#totals #tot_public ol li .num {
+	margin-left:5px;
+}
+#totals ol li .money {
+	font-weight: bold;
+}
+#totals ol li i {
+	text-transform: lowercase;
+	font-style: normal;
+	color:#666;
+}
+#totals h3 i.icon-down-dir,
+#totals.visible h3 i.icon-up-dir {
+	display: inline;
+}
+#totals.visible h3 i.icon-down-dir,
+#totals h3 i.icon-up-dir {
+	display: none;
+}
+#totals.visible {
+	border-bottom:1px solid #ddd;
+}
+#totals .linkToData {
+	display: none;
+	margin:10px 0 10px 25px;
+	text-align: left;
+	font-size: 10px;
+	text-transform: uppercase;
+}
+#totals #tot_public .linkToData {
+	text-align: right;
+	margin:10px 25px 10px 0;
+}
+#totals.visible .linkToData {
+	display: block;
+}
+/****************** SOURCES ****************/
+#sources {
+	font-size: 11px;
+	text-transform: uppercase;
+}
+#sources div {
+	
+}
+#sources div#people,
+#sources div#explore {
+	width: 50%;
+	float: left;
+}
+#sources div#explore p{
+	float:right;
+}
+#footer {
+	margin:15px 0;
+	font-size: 11px;
+	font-weight: bold;
+	text-transform: uppercase;
+	text-align: right;
+	color:#444;
+}
+.ie8 {
+	color:#333;
+	position: absolute;
+	top:160px;
+	left: 0;
+	right: 0;
+	text-align: center;
+	padding-top:0px;
+	background-color:#ffee96;
 }

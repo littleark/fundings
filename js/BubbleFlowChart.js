@@ -1,5 +1,7 @@
 function BubbleFlowChart(data) {
 
+
+
 	var svg=d3.select("#svg")
 				.append("svg")
 				.attr("width",WIDTH)
@@ -15,8 +17,12 @@ function BubbleFlowChart(data) {
 
 	var self=this;
 
+	var year=2013;
+
 	var step=0;
 	var space=0;
+
+	var open_element=null;
 
 	this.src_size=[];
 	this.dst_size=[];
@@ -38,88 +44,118 @@ function BubbleFlowChart(data) {
 		dst:{}
 	}
 
+	this.isLoading=false;
+
+
 	this.filter=null;
 
-	var tooltip=d3.select("#tooltip");
+	var tooltip={
+		node:d3.select("#tooltip"),
+		title:d3.select("#tooltip").select("h3"),
+		money:d3.select("#tooltip").select("h4"),
+		mt:d3.select("#tooltip").select("#mt")
+	};
 
-	this.loadCSV=function(year) {
-		d3.csv("data/pubblico_privato_"+year+".csv",function(d){
-			return {
-				to:d.Target.toLowerCase(),
-				from:d.Source.toLowerCase(),//+(d.Rata||"")+(d.Regione||""),
-				rata:d.Rata,
-				regione:d.Regione,
-				t:d.Pubblico?"public":"private",
-				flow:+d.Weight
-			}
-		},function(error,rows){
-			////console.log(rows);
+	this.loadCSV=function(__year) {
 
-			var rows_name={};
+		self.isLoading=true;
 
-			rows.forEach(function(d){
-				if(!rows_name[d.from+d.to]) {
-					rows_name[d.from+d.to]=d;
-				} else {
-					rows_name[d.from+d.to].flow+=d.flow;
-				}
-			})
+		year=__year;
+		
+		d3.select("#loading")
+				.style("display","block")
+				.transition()
+				.duration(1000)
+				.style("opacity",1)
+				.each("end",function(){
+					d3.csv("data/files/data"+year+".csv",function(d){
+							return {
+								to:d.Target.toLowerCase(),
+								from:d.Source.toLowerCase(),//+(d.Rata||"")+(d.Regione||""),
+								rata:d.Rata,
+								regione:d.Regione,
+								t:d.Pubblico?"public":"private",
+								flow:+d.Weight
+							}
+						},function(error,rows){
 
-			var aggregated_rows=[];
-			for(var from in rows_name) {
-				aggregated_rows.push(rows_name[from]);
-			}
+							var rows_name={};
 
-			////console.log("ROWS_NAME",rows_name)
+							rows.forEach(function(d){
+								if(!rows_name[d.from+d.to]) {
+									rows_name[d.from+d.to]=d;
+								} else {
+									rows_name[d.from+d.to].flow+=d.flow;
+								}
+							})
 
-			data=aggregated_rows.filter(function(d){
-				return d.flow>0;
-			});
+							var aggregated_rows=[];
+							for(var from in rows_name) {
+								aggregated_rows.push(rows_name[from]);
+							}
 
-			
-			if (self.filter) {
-				console.log("updating with filter",self.filter)
+							delete rows;
+							data=[];
 
-				update(data.filter(function(t){
-					return self.filter.f(t);
-				}));
+							data=aggregated_rows.filter(function(d){
+								return d.flow>0;
+							});
 
+							backToNormalState();
 
+							if (self.filter) {
+								update(data.filter(function(t){
+									return self.filter.f(t);
+								}));
+							} else {
+								update(data);
+								hideTooltip();
+							}
+							updateYear(year);
 
-			} else {
-				update(data);
-				updateYear(year);
-			}
-			
+							self.isLoading=false;
+						});
+				});
 
-			
-		});
+		
+	}
+
+	function backToNormalState(noupdate){
+		if(HEIGHT>original_height) {
+			HEIGHT=original_height-margins.top-margins.bottom;
+		}
+		space=0;
+		svg.classed("interacting",false).classed("clicked",false);
+
+		self.filter=null;
+
+		if(!noupdate) {
+			update(data);
+			updateTooltip(open_element,null,false);
+		}
+		
+		tooltip.node.style("display","none")
+
+		hidePopup(open_element);
+
+		open_element=null;
 	}
 
 	function update(__data,keep_scale) {
 
-		console.log("updating with new data",__data)
+		d3.select("#loading").style("display","none");
+
 
 		updateData(__data);
-		
 
 		max=getImportantValues(__data)
 
 
-		console.log("MAAAAAAAAAAAAAAAX",max)
-
 		extent=getExtents();
 
-		console.log("EXTENTS",extent)
-
-		//if(!keep_scale)
-			updateScales();
+		updateScales();
 
 		delta=getDelta();
-
-		console.log("UPDATED SRC_SIZE",self.src_size.length)
-		console.log("UPDATED SRC_PUBLIC_SIZE",self.src_public_size.length)
-		console.log("UPDATED DST_SIZE",self.dst_size.length)
 
 		funding_groups.src=updateCircleGroups(src,src_groups,src_sub_groups,self.src_size,"src");
 		funding_groups.dst=updateCircleGroups(dst,dst_groups,dst_sub_groups,self.dst_size,"dst");
@@ -128,7 +164,13 @@ function BubbleFlowChart(data) {
 		updateFlowsData();
 		updateFlows();
 
+		
+		updateLegend();
+
 		updateAllUXLayers(self.src_size,self.src_public_size,self.dst_size);
+
+
+		
 	}
 
 	function updateData(data){
@@ -193,20 +235,14 @@ function BubbleFlowChart(data) {
 				return values;
 		}
 
-		//PRIVATE
-		//src_size=[];
 		self.src_size=getNestedValues("private","from",data.filter(function(d){
 						return d.t=="private";
 					}));
 
-		//PUBLIC
-		//src_public_size=[];
 		self.src_public_size=getNestedValues("public","from",data.filter(function(d){
 						return d.t=="public";
 					}));
 
-		//DESTINATION
-		//dst_size=[];
 		self.dst_size=getNestedValues(null,"to",data);
 
 	}
@@ -216,7 +252,6 @@ function BubbleFlowChart(data) {
 
 	function updateFlow(data,dst_data,t) {
 
-		//console.log("SHITEEEE",data)
 
 		var flows=[];
 
@@ -241,10 +276,9 @@ function BubbleFlowChart(data) {
 					return t.key==flow.to;
 				})[0];
 
-				////console.log("LA VACA AD TO MADAR",tmp_dst)
 
 				flow.dst_index=tmp_dst.index;
-				//flow.dst_size=tmp_dst.values.total;
+
 				flow.dst_outer_offset=tmp_dst.values.offset || 0;
 				flow.y1=tmp_dst.y0 || 0;
 				
@@ -275,9 +309,6 @@ function BubbleFlowChart(data) {
 	function updateFlowsData() {
 		self.flows_size=updateFlow(self.src_size,self.dst_size,"private");
 		self.flows_public_size=updateFlow(self.src_public_size,self.dst_size,"public");
-		
-		//console.log("FLOWS",self.flows_size);
-		//console.log("FLOWS PUBLIC",self.flows_public_size);
 	}
 	
 	updateFlowsData();
@@ -296,7 +327,6 @@ function BubbleFlowChart(data) {
 				return d.values["total"];
 			}),
 			y_src:d3.sum(self.src_size,function(d){
-				////console.log(d.values["offset"])
 				return d.values["offset"];
 			}),
 			y_dst:d3.sum(self.dst_size,function(d){
@@ -312,8 +342,6 @@ function BubbleFlowChart(data) {
 	}
 
 	max=getImportantValues(data);
-
-	//console.log("ALL SUMS",max);
 
 	function getExtents() {
 		return {
@@ -340,19 +368,21 @@ function BubbleFlowChart(data) {
 
 	extent=getExtents();
 
-	////console.log("extent",extent,[Math.min(extent.src[0],extent.dst[0]),Math.min(extent.src[0],extent.dst[0])])
-	////console.log("!!!!!!!!",extent,[Math.min(extent.src[0],extent.dst[0]),Math.max(extent.src[0],extent.dst[0])])
-	////console.log(self.src_size)
+	function moneyFormat(money,compact,noeuro,nodecimal) {
+		var str="";
+		if(!money)
+			return str;
 
-	function moneyFormat(money,compact) {
-		if(money>1000000)
-			return "&euro;"+d3.format(",.2f")(money/1000000)+(compact?"M":" Milioni")
-		if(money>1000) {
-			return "&euro;"+d3.format(",.0f")(money)
+		if(money<1000000) {
+			str=(noeuro?"":"&euro;")+d3.format(",.0f")(money)
 		}
+		if(money>=1000000)
+			str=(noeuro?"":"&euro;")+d3.format(",."+(nodecimal?0:2)+"f")(money/1000000)+(compact?"M":" Milioni")
+
+		return str.replace(".","_").replace(",",".").replace("_",",");
 	}
 
-	var scale_y=d3.scale.linear().domain([extent.flows[0],max.total]).range([0,HEIGHT-d3.max([self.src_size.length,self.src_public_size.length,self.dst_size.length])*step]);
+	var scale_y=d3.scale.linear().domain([extent.flows[0],max.total]).range([0,HEIGHT]);
 
 	var radius={
 		min:scale_y(d3.min([extent.src[0],extent.src_public[0],extent.dst[0]])),
@@ -365,10 +395,6 @@ function BubbleFlowChart(data) {
 	
 	var scale_r=function(d){
 		var r=Math.floor(scale_y(d)/2);
-
-		//if(r<1)
-		//	return 1;
-
 		return r;
 	};
 
@@ -376,13 +402,10 @@ function BubbleFlowChart(data) {
 						    .domain(extent.flows_private)
 						    .range(["#23a4db","#23a4db"])
 						    .interpolate(d3.interpolateLab);
-						    //.range(["#9FC9E1","#1E648C"])
-						    //.range(["hsl(72,60%,89%)", "hsl(348,100%,43%)"]);
 	var scale_color2 = d3.scale.linear()
 						    .domain(extent.flows_public)
 						    .range(["#d8232a","#d8232a"])
 						    .interpolate(d3.interpolateLab);
-						    //.range(["#ffff00","#ff6600"])
 
 	var scale_color={
 		"private":scale_color1,
@@ -391,8 +414,6 @@ function BubbleFlowChart(data) {
 
 	
 	function getDelta() {
-
-		console.log("HEIGHT",HEIGHT+0.0,"original_height",original_height)
 
 		HEIGHT=original_height-(margins.top+margins.bottom);
 
@@ -422,8 +443,6 @@ function BubbleFlowChart(data) {
 			HEIGHT = HEIGHT + diff*2 +margins.top+margins.bottom +25*2
 			d3.select("#svg svg").attr("height",HEIGHT);
 			delta.src.y=0+25;
-			//delta.src_public.y+=diff+25;
-			//delta.dst.y+=diff+25;
 		} else {
 			d3.select("#svg svg").attr("height",original_height);
 		}
@@ -433,58 +452,49 @@ function BubbleFlowChart(data) {
 	
 
 	function updateScales(detail) {
-
-		console.log("update scales");
 	
 		scale_y.domain([0,max.total]); //extent.flows[0]
 
-		//if(scale_y(extent.flows[1])*2.6 < HEIGHT) {
-		//if(!detail) {
-			scale_y.range([0,HEIGHT-self.dst_size.length*step]);
-		//} else {
-		//	var xxx=scale_y(extent.flows[1])>100?100:scale_y(extent.flows[1]);
-		//	scale_y.range([0,100]);
-		//}
-
-		//console.log("SSSSSSSSSSSSSSSSSSSSSS",scale_y.range())
+		
+		scale_y.range([0,HEIGHT]);
+		
 
 		var max_y=scale_y(d3.max([extent.dst[1],extent.src[1],extent.src_public[1]]));
 
 		if(max_y>200) {
 			var k=200/max_y;
-			console.log("NCS",max_y,"HEIGHT:",HEIGHT,"k",k);
-			scale_y.range([0,(HEIGHT-self.dst_size.length*step)*k])
+			scale_y.range([0,(HEIGHT)*k])
 		}
+		
 
 		scale_r=function(d){ return (scale_y(d)/2)};
 
 	}
 
-	updateScales(); //useless call, just to test
+	updateScales();
 	delta=getDelta();
-
-	//console.log(delta,HEIGHT,max.src,max.dst)
-
-	var gradientPrivate=generateLinearGradient(svg,"gradientPrivate","#a69ca9","#ac77bb");
-	var gradientPublic=generateLinearGradient(svg,"gradientPublic","#6b9abf","#87a4bb");
 
 	svg.append("path")
 			.attr("d",function(){
 				var x=((WIDTH-margins.right-margins.left)/4-box_w/2);
 				return "M"+(x-40)+","+(HEIGHT/2-40)+"l80,40l-80,40z";
 			})
-			.style("stroke","none")
-			.style("fill","#000")
-			.style("fill-opacity",0.05)
+			.style({
+				"stroke":"none",
+				"fill":"#000",
+				"fill-opacity":0.05
+			});
 
 	svg.append("path")
 			.attr("d",function(){
 				var x=((WIDTH-margins.right-margins.left)*3/4);
 				return "M"+(x+40)+","+(HEIGHT/2-40)+"l-80,40l80,40z";
 			})
-			.style("stroke","none")
-			.style("fill","#000")
-			.style("fill-opacity",0.05)
+			.style({
+				"stroke":"none",
+				"fill":"#000",
+				"fill-opacity":0.05
+			});
 
 			
 	var canvas={
@@ -585,7 +595,7 @@ function BubbleFlowChart(data) {
 					})
 					.classed("highlight",true)
 					.classed("text-visible",function(d){
-						return scale_y(d.values.total)+step*2>12;
+						return scale_y(d.values.total)>12;
 					});
 			}
 		);
@@ -613,7 +623,7 @@ function BubbleFlowChart(data) {
 					})
 					.classed("highlight",true)
 					.classed("text-visible",function(d){
-						return scale_y(d.values.total)+step*2>12;
+						return scale_y(d.values.total)>12;
 					});
 			}
 		);
@@ -642,7 +652,7 @@ function BubbleFlowChart(data) {
 						})
 						.classed("highlight",true)
 						.classed("text-visible",function(d){
-							return scale_y(d.values.total)+step*2>12;
+							return scale_y(d.values.total)>12;
 						});
 				});
 			}
@@ -660,8 +670,6 @@ function BubbleFlowChart(data) {
 
 	function updateUXLayer(layer,sizes,from,to,direction,align,over_callback,out_callback) {
 		var inc=0;
-		
-		////console.log("UX DATA",from);
 
 		layer.node.attr("transform","translate("+delta[layer.delta].x+","+delta[layer.delta].y+")")
 
@@ -683,17 +691,8 @@ function BubbleFlowChart(data) {
 					.classed("highlight",clicked);
 
 
-		new_groups.append("rect")
-					.attr("x",function(d,i){
-						return layer.x;
-						//return -margins.left;
-					})
-					.attr("y",0)
-					.attr("width",function(d){
-						return layer.width;
-						//return margins.left + (WIDTH-margins.right-margins.left-box_w)/4;
-					})
-					.style("fill-opacity",0)
+		
+
 		new_groups.append("text")
 						.attr("class","label")
 						.attr("dy","0.25em")
@@ -708,9 +707,19 @@ function BubbleFlowChart(data) {
 							return d.key.slice(0,25)+ellipsis;
 						});
 
+		new_groups.append("rect")
+					.attr("x",function(d,i){
+						return layer.x;
+						//return -margins.left;
+					})
+					.attr("y",0)
+					.attr("width",function(d){
+						return layer.width;
+						//return margins.left + (WIDTH-margins.right-margins.left-box_w)/4;
+					})
+					.style("fill-opacity",0);
+
 		groups
-				//.transition()
-				//.duration(1000)
 				.attr("transform",function(d){
 						var x=0,
 							new_y=(scale_r(d.values.total))+inc;
@@ -728,7 +737,7 @@ function BubbleFlowChart(data) {
 
 		groups.select("text")
 					.classed("permanent",function(d){
-						return scale_r(d.values.total)*2+step*2>12;
+						return scale_r(d.values.total)*2>12;
 					})
 					.attr("x",function(d,i){
 						if (align=="middle")
@@ -741,9 +750,18 @@ function BubbleFlowChart(data) {
 						return scale_r(d.values.total)+space/2;
 					})
 
-		//ux_layer.src_group.selectAll("g.ux-src")
-
 		var tooltip_to=null;
+
+		tooltip.node.select("a#close").on("click",function(d){
+			d3.event.preventDefault();
+
+
+			backToNormalState();
+
+			
+		})
+
+		
 
 		groups
 				.on("click",function(d){
@@ -752,9 +770,15 @@ function BubbleFlowChart(data) {
 					}
 					if(!svg.classed("clicked")) {
 							space=10;
+
+							open_element=d;
+
+							if(d.values.flows.length<30) {
+								space=20;
+							}
+
 							svg.classed("interacting",true).classed("clicked",true);
 
-							//console.log("CLICKED",d,data)
 							if(!d.values.t) {
 
 								self.filter={
@@ -800,16 +824,7 @@ function BubbleFlowChart(data) {
 							updateTooltip(d,layer,true);
 
 					} else {
-						if(HEIGHT>original_height) {
-							HEIGHT=original_height-margins.top-margins.bottom;
-						}
-						space=0;
-						svg.classed("interacting",false).classed("clicked",false);
-
-						self.filter=null;
-
-						update(data);
-						updateTooltip(d,layer,false);
+						backToNormalState();
 					}
 					
 					
@@ -826,56 +841,57 @@ function BubbleFlowChart(data) {
 						showPopup(d);
 						return;
 					}
-					svg.classed("interacting",true)			
+					svg.classed("interacting",true);
 
-					/*
-					if(tooltip_to) {
-						clearTimeout(tooltip_to);
-						tooltip_to=null;
-					}
-					*/
+					var x=margins.left;
+					var dy=delta["dst"].y;
+					var smt_txt="ricevuti";
 
-					//console.log(d,delta,layer)
-
-					
-
-					var dx=0;
 					if(d.values.t=="private") {
-						dx-=60;
+						dy=delta["src"].y;
+						x+=(delta["src"].x-66);
+						smt_txt="erogati"
 					}
 					if(d.values.t=="public") {
-						dx+=60;
+						dy=delta["src_public"].y;
+						x+=(delta["src_public"].x-66);
+						smt_txt="erogati"
 					}
-					var dy=30;
-					if(d.key.length>25) {
-						dy=60;
+					if(!d.values.t){
+						x+=delta["dst"].x-66;
 					}
+
+
 					var style={
 								display:"block",
-								left:Math.round((margins.left+(delta[layer.delta].x)-60)+(dx))+"px",//(delta[layer.delta].x)+"px",
-								top:Math.round(d.ux_y+delta[layer.delta].y-55)+"px"
-								//top:(d.ux_y+delta[layer.delta].y-dy)+"px" //+scale_r(d.values.total)
+								left:x+"px",
+								top:(d.ux_y+dy-105)+"px"
 							};
-
-					tooltip
+					tooltip.node
 						.style(style)
-						.select("h3")
+					
+					tooltip.title
 							.text(function(){
 								return d.key;
-							})
-					tooltip.select("#mt")
+							});
+
+					tooltip.mt
 							.text(function(){
 								if(d.values.t) {
 									return "erogati";
 								}
+								
+								if(d.key=="movimento 5 stelle*") {
+									return "fondi assegnati e rifiutati"
+								}
 								return "ricevuti";
 							})
-					tooltip.select("h4")
+					tooltip.money
 							.html(function(){
 								return moneyFormat(d.values.total)
 							})
 
-
+					
 					from.sub
 						.filter(function(sub_d){
 							return sub_d[direction]==d.key;
@@ -890,22 +906,8 @@ function BubbleFlowChart(data) {
 
 					to.forEach(function(t_group){
 
-						////console.log(t_group)
-						/*
-						t_group.main
-							.filter(function(l){
-								return l.values.flows.filter(function(f){
-									return f[direction]==d.key;
-								}).length>0;
-							})
-							.classed("highlight",true)
-							.classed("text-visible",function(d){
-								return scale_y(d.values.total)+step*2>12;
-							});
-						*/
 						t_group.sub
 							.filter(function(sub_d){
-								////console.log(d.key,"==",sub_d.from)
 								return sub_d[direction]==d.key;
 							})
 							.classed("highlight",true)
@@ -914,25 +916,25 @@ function BubbleFlowChart(data) {
 					
 					if(over_callback)
 						over_callback(d);
-					/*
 					
-					*/		
 				})
 				.on("mouseout",function(d){
 
 					if(animating)
 						return;
 
-					if(svg.classed("clicked"))
-						return;
+					if(svg.classed("clicked")) {
 
-					//tooltip_to=setTimeout(function(){
-						tooltip
-							.style({
-								display:"none"
-							});	
-					//},200)
+						return;
+					}
+
 					
+					tooltip.node
+						.style({
+							display:"none"
+						});
+					
+
 
 					svg
 						.classed("interacting",false)
@@ -945,53 +947,184 @@ function BubbleFlowChart(data) {
 
 		return groups;
 	}
+	
 	updateAllUXLayers(self.src_size,self.src_public_size,self.dst_size);
 	
-	function updateTooltip(d,layer,large){
+	var legend=svg.append("g")
+					.attr("id","legend")
+					.attr("transform","translate("+(WIDTH-margins.right-120)+","+(HEIGHT-100)+")")
+
+
+	function getArcPath(r) {
+
+		//var r=scale_r(val);
+
+		var p="";
+
+		p+="M"+0+","+r;
+
+		p+="A"+r+","+r; //radii
+
+		p+=",0"	//x-axis-rotation
+
+		p+=",0" //large-arc-flag
+
+		p+=","+1//sweep-flag
+
+		p+=","+r+","+0;
+
+		p+="L"+r+","+r+"Z";
+		return p;
+
+	}
+
+	function updateLegend(){
+		var w=60,
+			h=100;
+
+		legend.attr("transform","translate("+(WIDTH-margins.right-110)+","+(HEIGHT-100)+")");
+
+		var ticks=scale_y.ticks(20)
+				.filter(function(d,i){
+					return i%2 && d>0  && scale_r(d)<80;
+				})
+				.sort(function(a,b){
+					return b-a;
+				})
+				.map(function(d){
+					return scale_r(d);
+				});
+
+		//var ticks=[60,40,20];
+
+
+
+		var l=legend.selectAll("path")
+				.data(ticks);
+
+		l.exit().remove();
+
+		l.enter()
+			.append("path");
 		
-		var dx=0;
-		if(d.values.t=="private") {
-			dx-=60;
-		}
-		if(d.values.t=="public") {
-			dx+=60;
-		}
-		var dy=30;
-		if(d.key.length>25) {
-			dy=60;
-		}
+		l
+			.attr("d",function(d){
+				return getArcPath(d/1);
+			})
+			.style("fill",function(d,i){
+				if(i%2)
+					return "#ddd";
+				return "#eee";
+			})
+			.attr("transform",function(r){
+				//var r=scale_r(d/1);
+				return "translate("+(w-r)+","+(h-r)+")";
+			})
+		
+		l=legend.selectAll("text")
+				.data(ticks);
 
-		var w=large?300:120,
-			h=large?230:40;
+		l.exit().remove();
 
-		w=((!d.values.t)?w:180);
-		h=((!d.values.t)?h:200);
+		l.enter()
+			.append("text");
+					
+		l
+			.attr("x",function(r){
+				return w+4;
+			})
+			.attr("y",function(r){
+				return h-r;
+			})
+			.attr("dy","0.21em")
+			.style("text-anchor","start")
+			.text(function(d){
+				return "€"+moneyFormat(scale_y.invert(d*2),1,1,true);
+			})
+
+	}
+	updateLegend();
+
+	function hideTooltip(){
 
 		var style={
-			left:Math.round((margins.left+(delta[layer.delta].x)-w/2)+(dx))+"px",
-			top:Math.round(delta[layer.delta].y+margins.top-h-5*2)+"px",
-			height:large?(h+"px"):"auto",
-			width:w+"px"
+			display:"none",
+			height:"auto",
+			width:120+"px"
 		}
 
-		tooltip
-			.select("h3")
+		tooltip.node
+			.classed("expanded",false)
+			.classed("dst",false)
+			.classed("private",false)
+			.classed("public",false)
+			.style(style)
+	}
+	function updateTooltip(d,layer,large){
+
+		if(!d)
+			return;
+
+		var x=margins.left;
+		var dy=delta["dst"].y;
+		var smt_txt="ricevuti";
+
+		var w=(large?300:120),
+			h=large?230:40;
+
+		if(large) {
+			w=((!d.values.t)?w:180);
+			h=((!d.values.t)?h:200);
+		}
+		
+
+		if(d.values.t=="private") {
+			dy=delta["src"].y;
+			x+=(delta["src"].x-w/2);
+			smt_txt="erogati"
+		}
+		if(d.values.t=="public") {
+			dy=delta["src_public"].y;
+			x+=(delta["src_public"].x-w/2);
+			smt_txt="erogati"
+		}
+		if(!d.values.t){
+			x+=delta["dst"].x-w/2;
+		}
+
+
+		var style={
+					display:"block",
+					left:x+"px",
+					top:(dy - h)+"px",
+					height:large?(h+"px"):"auto",
+					width:w+"px"
+				};
+
+
+		tooltip.title
+			//.select("h3")
 				.text(function(){
 					return d.key;
 				})
-		tooltip.select("#mt")
+		tooltip.mt
+			//.select("#mt")
 				.text(function(){
 					if(d.values.t) {
 						return "erogati";
 					}
+					if(d.key=="movimento 5 stelle*") {
+						return "fondi assegnati e rifiutati"
+					}
 					return "ricevuti";
 				})
-		tooltip.select("h4")
+		tooltip.money
+			//.select("h4")
 				.html(function(){
 					return moneyFormat(d.values.total)
 				})
 
-		tooltip
+		tooltip.node
 			.classed("expanded",large)
 			.classed("dst",!d.values.t)
 			.classed("private",d.values.t=="private")
@@ -999,6 +1132,7 @@ function BubbleFlowChart(data) {
 			.style(style)
 
 		tooltip
+			.node
 			.select("#ttContents")
 
 		var fundings={
@@ -1016,16 +1150,15 @@ function BubbleFlowChart(data) {
 				});
 			}
 		});
-		console.log(fundings);		
 
 		var types=["private","public"];
 		
 		types.forEach(function(t){
 
 			var perc=Math.round(fundings[t]/d.values.total*100*100)/100;
-			tooltip.select(".tt-"+t+" h5 b").text(perc+"%")
+			tooltip.node.select(".tt-"+t+" h5 b").text(perc+"%")
 
-			var list=tooltip.select(".tt-"+t+" ol")
+			var list=tooltip.node.select(".tt-"+t+" ol")
 					.selectAll("li")
 					.data(fundings[t+"_list"]);
 
@@ -1046,9 +1179,62 @@ function BubbleFlowChart(data) {
 		
 	}
 
-	function showPopup(d){
-		//console.log(d);
+	var subtooltip={
+		node:d3.select("#subtooltip"),
+		title:d3.select("#subtooltip").select("h3"),
+		money:d3.select("#subtooltip").select("h4"),
+		mt:d3.select("#subtooltip").select("#smt")
 	}
+	function hidePopup(){
+		subtooltip.node.style({display:"none"});
+	}
+	function showPopup(d){
+		
+		if(d.values.t==open_element.values.t) {
+			return;
+		}
+
+		var x=margins.left;
+
+
+
+		var dy=delta["dst"].y;
+		var smt_txt="ricevuti";
+
+		if(d.values.t=="private") {
+			dy=delta["src"].y - 30;
+			x+=(delta["src"].x + 5);
+			smt_txt="erogati"
+		}
+		if(d.values.t=="public") {
+			dy=delta["src_public"].y -30;
+			x+=(delta["src_public"].x - 135);
+			smt_txt="erogati"
+		}
+		if(!d.values.t){
+			x+=delta["dst"].x;
+			x+=((open_element.values.t=="private")?20:-155)
+		}
+
+
+		var style={
+					display:"block",
+					left:x+"px",
+					top:(d.ux_y+dy)+"px"
+				};
+
+		
+		subtooltip.title.text(d.key)
+		subtooltip.mt.text(smt_txt)
+		subtooltip.money.html(moneyFormat(d.values.total))
+		subtooltip.node.style(style)
+	}
+
+	d3.selectAll("#totals h3 a").on("click",function(){
+		d3.event.preventDefault();
+		d3.select("#totals")
+			.classed("visible",!d3.select("#totals").classed("visible"));
+	})
 
 	function updateYear(year){
 		var txt=d3.select("h2.year")
@@ -1056,35 +1242,45 @@ function BubbleFlowChart(data) {
 
 		txt.text(year);
 
-		d3.select("#tot_private h3")
+		d3.select("#tot_private h3 a span")
 			.html(moneyFormat(max.src))
 
-		d3.select("#tot_public h3")
+		d3.select("#tot_public h3 a span")
 			.html(moneyFormat(max.src_public))
 
-		d3.select("#tot h3")
+		d3.select("#tot h3 span")
 			.html(moneyFormat(max.dst))
 
 		d3.select("#totals ol li").remove();
 
 		var li=d3.select("#tot_private ol")
 					.selectAll("li")
-						.data(self.flows_size.slice(0,5));
-
+						.data(self.flows_size.slice(0,10));
+		li.exit().remove();
 		li.enter().append("li");
-		li.html(function(d){
-				return moneyFormat(d.size,true)+" da "+d.from+" a "+d.to;
+		li
+			.attr("title",function(d,i){
+				return moneyFormat(d.size,false,true)+" da "+d.from+" a "+d.to;
+			})
+			.html(function(d,i){
+				return "<span class=\"num\">"+(i+1)+"</span><span class=\"money\">"+moneyFormat(d.size,true)+"</span> <i>da</i> "+d.from+" <i>a</i> "+d.to;
 			});
 
 		var li=d3.select("#tot_public ol")
 					.selectAll("li")
-						.data(self.flows_public_size.slice(0,5));
+						.data(self.flows_public_size.slice(0,10));
 
+		li.exit().remove();
 		li.enter().append("li");
-		li.html(function(d){
-				return moneyFormat(d.size,true)+" da "+d.from+" a "+d.to;
+		li
+			.attr("title",function(d,i){
+				return d.from+": "+d.to+" "+moneyFormat(d.size,false,true);
 			})
+			.html(function(d,i){
+				return d.from+": "+d.to+" <span class=\"money\">"+moneyFormat(d.size,true)+"</span><span class=\"num\">"+(i+1)+"</span>";
+			});
 
+		//classes for button open/close
 	}
 
 	updateYear(2013)
@@ -1120,10 +1316,7 @@ function BubbleFlowChart(data) {
 				return d.key;
 			});
 		
-		//console.log("exit",groups.main.exit())
-		groups.main.exit()
-			//.transition().duration(1000)
-			.style("opacity",1e-6).remove();
+		groups.main.exit().remove();
 
 		var inc=0;
 		var new_groups=groups.main
@@ -1133,16 +1326,9 @@ function BubbleFlowChart(data) {
 									return d.key;
 								})
 								.attr("class","fund")
-								//.style("opacity",1e-6)
-								.attr("transform",function(d,i){
-									//d.delta=i*step
-									//var new_y=(scale_r(d.values.total))+inc;
-									//inc=inc+scale_r(d.values.total)*2+space;
-									return "translate(0,0)";
-								});
+								.attr("transform","translate(0,0)");
 
 
-		//console.log("new_groups",new_groups)
 
 		
 
@@ -1176,7 +1362,6 @@ function BubbleFlowChart(data) {
 								})
 								.selectAll("circle")
 								.data(function(d){
-									////console.log("MERDA",d)
 									return d.values.flows.map(function(sub_d){
 										return {
 											parent:d.key,
@@ -1195,10 +1380,7 @@ function BubbleFlowChart(data) {
 									return d.from+"-"+d.to;
 								});
 
-		groups.sub.exit()
-			//.transition()
-			.style("opacity",1e-6)
-			.remove();
+		groups.sub.exit().remove();
 
 		groups.sub.enter()
 				.append("circle")
@@ -1255,41 +1437,14 @@ function BubbleFlowChart(data) {
 
 		return groups;
 	}
-
-	function getStraightPath(d) {
-		var x0=box_w+5,
-			x1=(WIDTH-margins.right-margins.left-box_w-5),
-			h=scale_y(d.size),
-			y0=scale_y(d.src_outer_offset+d.src_inner_offset),
-			y1=scale_y(d.dst_outer_offset+d.dst_inner_offset);
-
-		return "M"+x0+","+y0+"L"+x1+","+y1+"L"+x1+","+(y1+h)+"L"+x0+","+(y0+h)+"Z";
-	}
-	function getStraightPathPublic(d) {
-		var x0=(WIDTH-margins.right-margins.left-box_w-2),
-			x1=(WIDTH-margins.right-margins.left)/2+box_w/2+2,
-			h=scale_y(d.size),
-			y0=scale_y(d.src_outer_offset+d.src_inner_offset)+ delta.src_public.y,
-			y1=scale_y(d.dst_outer_offset+d.dst_inner_offset)+ delta.dst.y;
-
-		return "M"+x0+","+y0+"L"+x1+","+y1+"L"+x1+","+(y1+h)+"L"+x0+","+(y0+h)+"Z";
-	}
 	
 	function getSmoothPath(d,border) {
-		var x0=box_w,//+2,
+		var x0=box_w,
 			x1=(WIDTH-margins.right-margins.left)/2-box_w/2,//-2,
 			h=(scale_y(d.size)/2),
-			y0=0,//scale_y(d.src_outer_offset)+scale_y(d.src_inner_offset)/2+d.src_index*step + delta.src,
-			y1=delta.dst.y; //scale_y(d.dst_outer_offset)+scale_y(d.dst_inner_offset)/2+d.dst_index*step + delta.dst;//+h/2;
+			y1=delta.dst.y-delta.src.y;
 
-		//if(h<1)
-		//	h=1;
-
-		y1=delta.dst.y-delta.src.y;
-
-		y0=d.y0;
-
-		y0=d.y0 + scale_r(d.src_inner_offset);
+		var y0=d.y0 + scale_r(d.src_inner_offset);
 		var dy=(d.total-d.dst_inner_offset);
 		y1+=d.y1 + scale_r(d.total) + scale_r(dy) - h;
 
@@ -1323,23 +1478,14 @@ function BubbleFlowChart(data) {
 
 	function getSmoothPathPublic(d,border) {
 
-		////console.log("PATH",d)
-
 		var x0=0,
-			x1=-(WIDTH-margins.right-margins.left)/2+box_w/2,//+2,
+			x1=-(WIDTH-margins.right-margins.left)/2+box_w/2,
 			h=(scale_y(d.size)/2),
-			y0=0,
-			y1=delta.dst.y;
-		
+			y1=delta.dst.y-delta.src_public.y;
 
-		y1=delta.dst.y-delta.src_public.y;
-
-		y0=d.y0 + scale_r(d.src_inner_offset);
+		var y0=d.y0 + scale_r(d.src_inner_offset);
 		var dy=(d.total-d.dst_inner_offset);
 		y1+=d.y1 + scale_r(d.dst_inner_offset);
-
-		//y0=(y0);
-		//y1=(y1);
 
 		var c1x=x0+(x1-x0)/2,
 			c1y=y0,
@@ -1370,9 +1516,11 @@ function BubbleFlowChart(data) {
 	
 	function updateFlows() {
 
+		
+
 		var __flows=flows.selectAll("g.flow")
 				.data(self.flows_size.concat(self.flows_public_size),function(d){
-					////console.log(d)
+					
 					return d.from+"-"+d.to;
 				});
 
@@ -1412,8 +1560,6 @@ function BubbleFlowChart(data) {
 		};
 
 		__flows
-				//.transition()
-				//.duration(1000)
 				.attr("transform",function(d){
 
 					var x=(d.t=="private")?box_w:(WIDTH-margins.right-margins.left-box_w);
@@ -1425,8 +1571,6 @@ function BubbleFlowChart(data) {
 
 		__flows
 				.select("path.fill")
-					//.transition()
-					//.duration(1000)
 					.style("fill",function(d){
 						return scale_color[d.t](d.size);
 					})
@@ -1457,8 +1601,6 @@ function BubbleFlowChart(data) {
 						scale_color[d.t](d.flow);
 					}
 				})
-				//.transition()
-				//.duration(1000)
 				.attr("d",function(d){
 					var p="";
 					if(d.t=="private") {
@@ -1477,8 +1619,6 @@ function BubbleFlowChart(data) {
 				.classed("no-stroke",function(d,i){
 					return scale_r(d.size)<2;
 				})
-				//.transition()
-				//.duration(1000)
 					.attr("d",function(d){
 						var p="";
 						if(d.t=="private") {
@@ -1493,26 +1633,4 @@ function BubbleFlowChart(data) {
 	}
 	updateFlows();
 	
-	function generateLinearGradient(svg,gradient_name,stop0,stop100) {
-		var gradient = svg.append("svg:defs")
-						  .append("svg:linearGradient")
-						    .attr("id", gradient_name)
-						    .attr("x1", "0%")
-						    .attr("y1", "0%")
-						    .attr("x2", "100%")
-						    .attr("y2", "0%")
-						    .attr("spreadMethod", "pad");
-
-		gradient.append("svg:stop")
-		    .attr("offset", "0%")
-		    .attr("stop-color", stop0)
-		    .attr("stop-opacity", 1);
-
-		gradient.append("svg:stop")
-		    .attr("offset", "100%")
-		    .attr("stop-color", stop100)
-		    .attr("stop-opacity", 1);
-
-		return gradient;
-	}
 }

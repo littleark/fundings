@@ -1,5 +1,6 @@
 function StackChart(data,options){
 
+
 	var margins=options.margins;
 
 	var svg=d3.select(options.container)
@@ -17,36 +18,12 @@ function StackChart(data,options){
 
 	var xt=d3.extent(data[0].map(function(d) { return d.x; }));
 
-	//console.log("XT",xt)	
-
-	//x.domain(data[0].map(function(d) { return d.x; }));
 	x.domain(xt);
 	x = d3.scale.linear().range([5, options.width - margins.left - margins.right-5]).domain(xt);
 
-	//console.log(x.domain())
 
 	y.domain([0, d3.max(data[data.length - 1], function(d) { return d.y0 + d.y; })]);
 	
-	//console.log(y.domain())
-
-	/*	
-	// Add a group for each type of funding.
-	var fundings = svg.selectAll("g.fundings")
-					.data(data)
-					.enter().append("svg:g")
-					.attr("class", "funding")
-					.style("fill", function(d, i) { return z(i); })
-					.style("stroke", function(d, i) { return d3.rgb(z(i)).darker(); });
-
-	// Add a rect for each date.
-	var rects = fundings.selectAll("rect")
-					.data(Object)
-					.enter().append("svg:rect")
-					.attr("x", function(d) { return x(d.x); })
-					.attr("y", function(d) { return -y(d.y0) - y(d.y); })
-					.attr("height", function(d) { return y(d.y); })
-					.attr("width", x.rangeBand());
-	*/
 
 	drawAreas();
 
@@ -60,16 +37,7 @@ function StackChart(data,options){
     						return "translate("+x(d.x)+",0)";
     					})
     					
-
-	// Add a label per date.
-	/*var label = svg.selectAll("text")
-					//.data(x.domain())
-					.data(data[0].map(function(d) { return d.x; }))
-	    				.enter()*/
 	var w=x(data[0][1].x)-x(data[0][0].x);
-
-	
-
 
 	vrules
 		.append("svg:text")
@@ -81,11 +49,10 @@ function StackChart(data,options){
 				return d3.time.format("%Y")(d.x);
 			})
 			.classed("clickable",function(d){
+				return true;
 				var year= +d3.time.format("%Y")(d.x);
 				return [2009,2012,2013].indexOf(year)>-1;
 			})
-
-	console.log("XXXXXXXXXXXXXXXXXXXXXXXX",data[0].concat(data[1]))
 
 	var labels=svg.append("g")
 		.selectAll("g.vlabel")
@@ -124,25 +91,44 @@ function StackChart(data,options){
 			})
 	
 	labels.append("svg:rect")
-			.attr("x",-60)
-			.attr("y",function(d){
-				return (d.t=="public")?-25:0;
+			.attr("x",function(d){
+				return (d.t=="public")?10:-120;
 			})
-			.attr("width",50)
-			.attr("height",20)
+			.attr("y",-20)
+			.attr("width",110)
+			.attr("height",35)
 			//.attr("rx",5)
 			//.attr("ry",5)
 
 	labels.append("svg:text")
 			.attr("class","vlabel")
-			.attr("x",-35)
-			.attr("y",function(d){
-				return (d.t=="public")?-20:5;
+			.attr("x",function(d){
+				return (d.t=="public")?15:-115;
 			})
-			.attr("text-anchor", "middle")			
+			.attr("y",-15)
+			.attr("text-anchor", "start")			
 			.attr("dy", ".71em")
 			.text(function(d){
-				return d3.format(",.0f")(d.y/1000000)+"M";
+				if(d.t=="private") {
+					return "Donazioni private";
+				} else {
+					return "Rimborsi elettorali";
+				}
+			})
+	labels.append("svg:text")
+			.attr("class","vlabel")
+			.attr("x",function(d){
+				return (d.t=="public")?15:-115;
+			})
+			.attr("y",0)
+			.attr("text-anchor", "start")			
+			.attr("dy", ".71em")
+			.style("fill",function(d){
+				
+				return (d.t=="public")?"#d8232a":"#23a4db";
+			})
+			.text(function(d){
+				return "€"+d3.format(",.2f")(d.y/1000000) + " Milioni";
 			})
 
 	labels.append("svg:circle")
@@ -167,7 +153,6 @@ function StackChart(data,options){
 	vrules
 		.append("line")
 			.attr("y2",function(d){
-				//console.log(d);
 				return -y(d.y+d.y0);
 			})
 
@@ -191,7 +176,9 @@ function StackChart(data,options){
 	      .style("text-anchor","end")
 	      .attr("dy", ".35em")
 	      .text(function(d){
-	      	return d3.format(",.0f")(d/1000000)+"M";
+	      	if(d>0)
+	      		return "€"+d3.format(",.0f")(d/1000000)+" Milioni";//+"M";
+	      	return "";
 	      });
 	
 	function drawAreas() {
@@ -213,7 +200,6 @@ function StackChart(data,options){
 					.enter().append("path")
 						.attr("d", area)
 						.style("fill", function(d,i) { 
-							//console.log(i,d)
 							return z(i);
 						})
 						.style("stroke",function(d,i){
@@ -223,4 +209,14 @@ function StackChart(data,options){
 		
 	}
 
+
+	function moneyFormat(money,compact,noeuro) {
+		if(!money)
+			return "";
+		if(money>1000000)
+			return (noeuro?"":"&euro;")+d3.format(".2f")(money/1000000)+(compact?"M":" Milioni")
+		if(money>1000) {
+			return (noeuro?"":"&euro;")+d3.format(".0f")(money)
+		}
+	}
 }
